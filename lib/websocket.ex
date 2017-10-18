@@ -1,22 +1,24 @@
 defmodule Gateway.Websocket do
-  @moduledoc """Main websocket"""
+  @moduledoc """
+  Main websocket
+  """
 
   require Logger
-  @behavior :cowboy_websocket
+  @behaviour :cowboy_websocket
 
   def hb_interval() do
     41250
   end
   
-  def init(request, state) do
-    Logger.info "New client: #{request}"
+  def init(req, state) do
+    Logger.info "New client: #{inspect req}"
     hb_interval()
     |> :erlang.start_timer(self(), [:heartbeat])
 
     {:cowboy_websocket, req, state}
   end
 
-  def terminate(_reason, _request, _state) do
+  def terminate(reason, _request, _state) do
     Logger.info "Terminating, #{inspect reason}"
     :ok
   end
@@ -41,6 +43,22 @@ defmodule Gateway.Websocket do
        guild_sync: 12}[op]
   end
 
+  def opcode_atom(opcode) do
+    %{0 => :dispatch,
+      1 => :heartbeat,
+      2 => :identify,
+      3 => :status_update,
+      4 => :voice_update,
+      5 => :voice_ping,
+      6 => :resume,
+      7 => :reconnect,
+      8 => :req_guild_members,
+      9 => :invalid,
+      10 => :hello,
+      11 => :ack,
+      12 => :guild_sync}[opcode]
+  end
+
   def payload(:ack, state) do
     %{
       op: opcode(:ack),
@@ -49,11 +67,11 @@ defmodule Gateway.Websocket do
     |> encode(state)
   end
 
-  def encode(map, state) do
+  def encode(map, _state) do
     JSEX.encode(map)
   end
 
-  def decode(raw, state) do
+  def decode(raw, _state) do
     JSEX.decode(raw)
   end
   
@@ -65,17 +83,18 @@ defmodule Gateway.Websocket do
       op: opcode(:hello),
       d: %{
 	heartbeat_interval: hb_interval(),
-	"_trace" => get_name()
+	_trace: get_name()
       }
     }
-    {:reply, {:text, encode(hello)}, state}
+    {:reply, {:text, encode(hello, state)}, state}
   end
   
   # Handle client frames
   def websocket_handle({:text, content}, req, state) do
     {:ok, payload} = decode(content, state)
     IO.puts "#{inspect payload}"
-    gateway_handle(payload, req, state)
+    as_atom = opcode_atom(payload)
+    gateway_handle(as_atom, payload, req, state)
   end
 
   def websocket_handle(_any_frame, _req, state) do
@@ -99,16 +118,15 @@ defmodule Gateway.Websocket do
   Handle HEARTBEAT packets by the client.
   Send HEARTBEAT ACK packets
   """
-  def gateway_handle(%{op: opcode(:heartbeat), d: seq}, req, state) do
-    {:reply, payload(:ack), Map.put(state, :seq, seq)}
+  def gateway_handle(:heartbeat, %{d: seq}, _req, state) do
+    {:reply, payload(:ack, state), Map.put(state, :seq, seq)}
   end
 
   @doc """
   Handle IDENTIFY packet.
   Dispatches the READY event.
   """
-  def gateway_handle(%{op: opcode(:identify),
-		      token: token,}, req, state) do
+  def gateway_handle(:identify, payload, _req, state) do
     # {:reply, payload(:ack), Map.put(state, :seq, seq)}
   end
 
