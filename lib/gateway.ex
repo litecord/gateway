@@ -1,18 +1,18 @@
 defmodule Gateway do
-  @moduledoc """
-  Documentation for Gateway.
-  """
+  def start(_type, _args) do
+    dispatch_config = build_dispatch_config()
 
-  @doc """
-  Hello world.
+    {:ok, _} = :cowboy.start_http(:http,
+      100,
+      [{:port, 8080}],
+      [{:env, [{:dispatch, dispatch_config}]}])
+  end
 
-  ## Examples
-
-      iex> Gateway.hello
-      :world
-
-  """
-  def hello do
-    :world
+  def build_dispatch_config do
+    :cowboy_router.compile([
+      {:_, [
+	  {"/gw", Gateway.Websocket, []}
+	]}
+    ])
   end
 end
