@@ -1,6 +1,7 @@
-# Gateway
+# Litecord's Gateway
 
-**TODO: Add description**
+This is the gateway component for Litecord, a server
+compliant with the Discord API.
 
 ## Installation
 
