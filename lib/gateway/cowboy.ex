@@ -13,7 +13,7 @@ defmodule Gateway.Cowboy do
   def start_link_https() do
     dispatch_config = build_dispatch_config()
 
-    {:ok, _} = :cowboy.start_tls(:http,
+    {:ok, _} = :cowboy.start_tls(:litecord_http,
       [
 	{:port, 8443},
 	{:certfile, ""},

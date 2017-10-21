@@ -16,14 +16,16 @@ defmodule Gateway.Websocket do
   def hb_interval() do
     41250
   end
+
+  def hb_timer() do
+    Logger.info "start timer"
+    :erlang.send_after(hb_interval(), self(), [:heartbeat])
+  end
   
   def init(req, _state) do
     Logger.info "New client: #{inspect req}"
 
     # TODO: parse querystring here
-
-    hb_interval()
-    |> :erlang.start_timer(self(), [:heartbeat])
 
     {:cowboy_websocket, req, %State{recv_seq: 0,
 				    sent_seq: 0,
@@ -34,8 +36,8 @@ defmodule Gateway.Websocket do
 				    encoding: "json"}}
   end
 
-  def terminate(reason, _request, _state) do
-    Logger.info "Terminating, #{inspect reason}"
+  def terminate(reason, _request, state) do
+    Logger.info "Terminating, #{inspect reason}, #{inspect state}"
     :ok
   end
 
@@ -78,18 +80,24 @@ defmodule Gateway.Websocket do
   def encode(map, state) do
     encoded = case state.encoding do
 		"etf" -> :erlang.term_to_binary(map)
-		_ -> JSEX.encode(map)
+		_ ->
+		  {:ok, json} = JSEX.encode(map)
+		  json
 	      end
 
     case state.compress do
-      _ -> encoded
+      _ ->
+	:erlang.binary_to_list(encoded)
     end
   end
 
   def decode(raw, state) do
     case state.encoding do
-      "etf" -> :erlang.binary_to_term(raw, [:safe])
-      _ -> JSEX.decode(raw)
+      "etf" ->
+	:erlang.binary_to_term(raw, [:safe])
+      _ ->
+	{:ok, decoded} = JSEX.decode(raw)
+	decoded
     end
   end
 
@@ -105,6 +113,7 @@ defmodule Gateway.Websocket do
   # will send an IDENTIFY packet soon
   # after receiving this HELLO.
   def websocket_init(state) do
+    Logger.info "Sending a hello packet"
     hello = %{
       op: opcode(:hello),
       d: %{
@@ -112,46 +121,63 @@ defmodule Gateway.Websocket do
 	_trace: get_name()
       }
     }
+    hb_timer()
     {:reply, {:text, encode(hello, state)}, state}
   end
   
   # Handle client frames
-  def websocket_handle({:text, content}, req, state) do
+  def websocket_handle({:text, content}, state) do
     {:ok, payload} = decode(content, state)
     IO.puts "Received payload: #{inspect payload}"
     as_atom = opcode_atom(payload)
-    gateway_handle(as_atom, payload, req, state)
+    gateway_handle(as_atom, payload, state)
   end
 
-  def websocket_handle(_any_frame, _req, state) do
+  def websocket_handle(_any_frame, state) do
     {:ok, state}
   end
 
-  def websocket_info({_timeout, _ref, [:heartbeat]}, _req, state) do
+  def websocket_info([:heartbeat], state) do
+    Logger.info "Checking heartbeat state"
     case state.heartbeat do
       true ->
-	hb_interval()
-	|> :erlang.start_timer(self(), [:heartbeat])
-
+	Logger.info "all good"
+	hb_timer()
 	{:ok, Map.put(state, :heartbeat, false)}
       false ->
-	{:stop, state}
+	Logger.info "all bad"
+	{:reply, {:close, 4009, "Session timeout"}, state}
     end
   end
+
+  def websocket_info(data, state) do
+    Logger.info "w_info = #{inspect data}"
+    {:ok, state}
+  end
+    
+  #def websocket_info(any, _state) do
+  #  Logger.info "recv info: #{any}"
+  #end
 
   @doc """
   Handle HEARTBEAT packets by the client.
   Send HEARTBEAT ACK packets
   """
-  def gateway_handle(:heartbeat, %{d: seq}, _req, state) do
-    {:reply, payload(:ack, state), Map.put(state, :recv_seq, seq)}
+  def gateway_handle(:heartbeat, %{d: seq}, state) do
+    case state.identified do
+      true ->
+	{:reply, payload(:ack, state),
+	 Map.put(state, :recv_seq, seq)}
+      _ ->
+	{:reply, {:close, 4003, "Not authenticated"}, state}
+    end
   end
 
   @doc """
   Handle IDENTIFY packet.
   Dispatches the READY event.
   """
-  def gateway_handle(:identify, payload, _req, state) do
+  def gateway_handle(:identify, payload, state) do
     # {:reply, payload(:ack), Map.put(state, :seq, seq)}
   end
 

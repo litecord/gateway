@@ -6,6 +6,11 @@ defmodule Gateway.Bridge do
   require Logger
   @behaviour :cowboy_websocket
 
+  defmodule State do
+    @moduledoc false
+    defstruct [:heartbeat]
+  end
+  
   def hb_interval() do
     10000
   end
@@ -24,10 +29,10 @@ defmodule Gateway.Bridge do
     end
   end
   
-  def init(req, state) do
+  def init(req, _state) do
     {peer_ip, peer_port} = :cowboy_req.peer(req)
     Logger.info "New client at #{peer_ip}:#{peer_port}"
-    {:cowboy_websocket, req, state}
+    {:cowboy_websocket, req, %State{heartbeat: false}}
   end
 
   def hb_timer() do
@@ -60,7 +65,7 @@ defmodule Gateway.Bridge do
   provided password is correct
   """
   def handle_payload(1, payload, state) do
-    correct = Application.fetch_env!(:gateway, :password)
+    correct = Application.fetch_env!(:gateway, :bridge_password)
     given = payload["password"]
     if correct == given do
       {:ok, Map.put(state, :identify, true)}
