@@ -8,7 +8,7 @@ defmodule Gateway.Bridge do
 
   defmodule State do
     @moduledoc false
-    defstruct [:heartbeat]
+    defstruct [:heartbeat, :identify, :encoding, :compress]
   end
   
   def hb_interval() do
@@ -16,23 +16,34 @@ defmodule Gateway.Bridge do
   end
 
   def encode(map, state) do
-    case state[:compress] do
-      _ ->
-	JSEX.encode(map)
+    encoded = case state.encoding do
+		"json" ->
+		  {:ok, raw} = JSEX.encode(map)
+		  raw
+	      end
+
+    if state.compress do
+      ""
+    else
+      encoded
     end
   end
 
   def decode(data, state) do
-    case state[:compress] do
-      _ ->
-	JSEX.decode(data)
+    case state.encoding do
+      "json" ->
+	{:ok, map} = JSEX.decode(data)
+	map
     end
   end
   
   def init(req, _state) do
     {peer_ip, peer_port} = :cowboy_req.peer(req)
     Logger.info "New client at #{peer_ip}:#{peer_port}"
-    {:cowboy_websocket, req, %State{heartbeat: false}}
+    {:cowboy_websocket, req, %State{heartbeat: false,
+				    identify: false,
+				    encoding: "json",
+				    compress: false}}
   end
 
   def hb_timer() do
@@ -50,6 +61,7 @@ defmodule Gateway.Bridge do
   # payload handlers
   def websocket_handle({:text, frame}, state) do
     payload = decode(frame, state)
+    IO.puts "recv payload: #{inspect payload}"
     %{"op" => opcode} = payload
     handle_payload(opcode, payload, state)
   end
@@ -57,6 +69,19 @@ defmodule Gateway.Bridge do
   def websocket_handle(_any_frame, state) do
     {:ok, state}
   end
+
+  # erlang timer handlers
+  def websocket_info(:req_heartbeat, state) do
+    case state.heartbeat do
+      true ->
+	hb_timer()
+	{:ok, Map.put(state, :heartbeat, false)}
+      false ->
+	{:reply, {:close, 4003, "Heartbeat timeout"}, state}
+    end
+  end
+
+  # specific payload handlers
 
   @doc """
   Handle OP 1 Hello ACK.
@@ -70,7 +95,7 @@ defmodule Gateway.Bridge do
     if correct == given do
       {:ok, Map.put(state, :identify, true)}
     else
-      {:stop, state}
+      {:reply, {:close, 4001, "Authentication failed"}, state}
     end
   end
 
@@ -81,12 +106,12 @@ defmodule Gateway.Bridge do
   OP 1 Hello ACK, it is disconnected.
   """
   def handle_payload(2, _payload, state) do
-    case Map.get(state, :identify) do
+    case state.identify do
       true ->
 	hb_ack = encode(%{op: 3}, state)
-	{:reply, hb_ack, Map.put(state, :heartbeat, true)}
+	{:reply, {:text, hb_ack}, Map.put(state, :heartbeat, true)}
       false ->
-	{:stop, state}
+	{:reply, {:close, 4002, "Not Authenticated"}, state}
     end
   end
 
@@ -96,9 +121,9 @@ defmodule Gateway.Bridge do
   Handle a specific request from the client.
   Sends OP 5 Response.
   """
-  def handle_payload(4, payload, state) do
-    %{"" => nonce,
-      "" => q} = decode(payload, state)
+  def handle_payload(4, _payload, state) do
+    #%{"" => nonce,
+    #  "" => q} = decode(payload, state)
     {:ok, state}
   end
 
@@ -111,14 +136,4 @@ defmodule Gateway.Bridge do
     {:ok, state}
   end
 
-  # erlang timer handlers
-  def websocket_info({:timeout, _ref, :req_heartbeat}, state) do
-    case state[:heartbeat] do
-      true ->
-	hb_timer()
-	{:ok, Map.put(state, :heartbeat, false)}
-      false ->
-	{:stop, state}
-    end
-  end
 end
