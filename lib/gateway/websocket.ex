@@ -101,7 +101,7 @@ defmodule Gateway.Websocket do
     {:ok, state}
   end
 
-  def websocket_info({_timeout, _ref, [:heartbeat]}, req, state) do
+  def websocket_info({_timeout, _ref, [:heartbeat]}, _req, state) do
     case state[:heartbeat] do
       true ->
 	hb_interval()

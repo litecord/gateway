@@ -1,19 +1,7 @@
 defmodule Gateway do
+  import Application
+
   def start(_type, _args) do
-    dispatch_config = build_dispatch_config()
-
-    {:ok, _} = :cowboy.start_clear(:http,
-      [{:port, 8080}],
-      %{env: %{dispatch: dispatch_config}}
-    )
-  end
-
-  def build_dispatch_config do
-    :cowboy_router.compile([
-      {:_, [
-	  {"/", Gateway.DefaultHandler, []},
-	  {"/gw", Gateway.Websocket, []}
-	]}
-    ])
+    Gateway.Supervisor.start_link(name: Gateway.Supervisor)
   end
 end
