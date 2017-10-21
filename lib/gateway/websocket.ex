@@ -12,6 +12,9 @@ defmodule Gateway.Websocket do
   
   def init(req, state) do
     Logger.info "New client: #{inspect req}"
+
+    # TODO: parse querystring here
+
     hb_interval()
     |> :erlang.start_timer(self(), [:heartbeat])
 
