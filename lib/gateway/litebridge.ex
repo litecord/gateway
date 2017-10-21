@@ -89,8 +89,11 @@ defmodule Gateway.Bridge do
   Handle OP 4 Request
 
   Handle a specific request from the client.
+  Sends OP 5 Response.
   """
-  def handle_payload(4, _payload, state) do
+  def handle_payload(4, payload, state) do
+    %{"" => nonce,
+      "" => q} = decode(payload, state)
     {:ok, state}
   end
 

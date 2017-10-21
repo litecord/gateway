@@ -6,11 +6,18 @@ defmodule Gateway.Websocket do
   require Logger
   @behaviour :cowboy_websocket
 
+  defmodule State do
+    @moduledoc false
+    defstruct [:session_id, :token, :user_id, :events,
+	       :recv_seq, :sent_seq, :heartbeat,
+	       :encoding, :compress]
+  end
+  
   def hb_interval() do
     41250
   end
   
-  def init(req, state) do
+  def init(req, _state) do
     Logger.info "New client: #{inspect req}"
 
     # TODO: parse querystring here
@@ -18,7 +25,13 @@ defmodule Gateway.Websocket do
     hb_interval()
     |> :erlang.start_timer(self(), [:heartbeat])
 
-    {:cowboy_websocket, req, state}
+    {:cowboy_websocket, req, %State{recv_seq: 0,
+				    sent_seq: 0,
+				    heartbeat: false,
+				    events: [],
+				    session_id: nil,
+				    compress: false,
+				    encoding: "json"}}
   end
 
   def terminate(reason, _request, _state) do
@@ -27,7 +40,7 @@ defmodule Gateway.Websocket do
   end
 
   defp get_name() do
-    "litecord-gateway-prd-0"
+    ["litecord-gateway-prd-0"]
   end
 
   def opcode(op) do
@@ -62,6 +75,24 @@ defmodule Gateway.Websocket do
       12 => :guild_sync}[opcode]
   end
 
+  def encode(map, state) do
+    encoded = case state.encoding do
+		"etf" -> :erlang.term_to_binary(map)
+		_ -> JSEX.encode(map)
+	      end
+
+    case state.compress do
+      _ -> encoded
+    end
+  end
+
+  def decode(raw, state) do
+    case state.encoding do
+      "etf" -> :erlang.binary_to_term(raw, [:safe])
+      _ -> JSEX.decode(raw)
+    end
+  end
+
   def payload(:ack, state) do
     %{
       op: opcode(:ack),
@@ -70,14 +101,6 @@ defmodule Gateway.Websocket do
     |> encode(state)
   end
 
-  def encode(map, _state) do
-    JSEX.encode(map)
-  end
-
-  def decode(raw, _state) do
-    JSEX.decode(raw)
-  end
-  
   # The logic is that the client
   # will send an IDENTIFY packet soon
   # after receiving this HELLO.
@@ -95,7 +118,7 @@ defmodule Gateway.Websocket do
   # Handle client frames
   def websocket_handle({:text, content}, req, state) do
     {:ok, payload} = decode(content, state)
-    IO.puts "#{inspect payload}"
+    IO.puts "Received payload: #{inspect payload}"
     as_atom = opcode_atom(payload)
     gateway_handle(as_atom, payload, req, state)
   end
@@ -105,12 +128,11 @@ defmodule Gateway.Websocket do
   end
 
   def websocket_info({_timeout, _ref, [:heartbeat]}, _req, state) do
-    case state[:heartbeat] do
+    case state.heartbeat do
       true ->
 	hb_interval()
 	|> :erlang.start_timer(self(), [:heartbeat])
 
-	# something something I AM NOT GOOD WITH STATE
 	{:ok, Map.put(state, :heartbeat, false)}
       false ->
 	{:stop, state}
@@ -122,7 +144,7 @@ defmodule Gateway.Websocket do
   Send HEARTBEAT ACK packets
   """
   def gateway_handle(:heartbeat, %{d: seq}, _req, state) do
-    {:reply, payload(:ack, state), Map.put(state, :seq, seq)}
+    {:reply, payload(:ack, state), Map.put(state, :recv_seq, seq)}
   end
 
   @doc """

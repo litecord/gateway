@@ -25,7 +25,8 @@ defmodule Gateway.Cowboy do
     :cowboy_router.compile([
       {:_, [
 	  {"/", Gateway.DefaultHandler, []},
-	  {"/gw", Gateway.Websocket, []}
+	  {"/gw", Gateway.Websocket, %{}},
+	  {"/bridge", Gateway.Litebridge, %{}}
 	]}
     ])
   end
