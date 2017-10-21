@@ -47,18 +47,18 @@ defmodule Gateway.Websocket do
 
   def opcode(op) do
     %{dispatch: 0,
-       heartbeat: 1,
-       identify: 2,
-       status_update: 3,
-       voice_update: 4,
-       voice_ping: 5,
-       resume: 6,
-       reconnect: 7,
-       req_guild_members: 8,
-       invalid: 9,
-       hello: 10,
-       ack: 11,
-       guild_sync: 12}[op]
+      heartbeat: 1,
+      identify: 2,
+      status_update: 3,
+      voice_update: 4,
+      voice_ping: 5,
+      resume: 6,
+      reconnect: 7,
+      req_guild_members: 8,
+      invalid: 9,
+      hello: 10,
+      ack: 11,
+      guild_sync: 12}[op]
   end
 
   def opcode_atom(opcode) do
