@@ -26,7 +26,7 @@ defmodule Gateway.Cowboy do
       {:_, [
 	  {"/", Gateway.DefaultHandler, []},
 	  {"/gw", Gateway.Websocket, %{}},
-	  {"/bridge", Gateway.Litebridge, %{}}
+	  {"/bridge", Gateway.Bridge, %{}}
 	]}
     ])
   end

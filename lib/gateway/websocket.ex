@@ -81,8 +81,7 @@ defmodule Gateway.Websocket do
     encoded = case state.encoding do
 		"etf" -> :erlang.term_to_binary(map)
 		_ ->
-		  {:ok, json} = JSEX.encode(map)
-		  json
+		  Poison.encode!(map)
 	      end
 
     case state.compress do
@@ -96,8 +95,7 @@ defmodule Gateway.Websocket do
       "etf" ->
 	:erlang.binary_to_term(raw, [:safe])
       _ ->
-	{:ok, decoded} = JSEX.decode(raw)
-	decoded
+	Poison.decode!(raw)
     end
   end
 
@@ -127,7 +125,7 @@ defmodule Gateway.Websocket do
   
   # Handle client frames
   def websocket_handle({:text, content}, state) do
-    {:ok, payload} = decode(content, state)
+    payload = decode(content, state)
     IO.puts "Received payload: #{inspect payload}"
     as_atom = opcode_atom(payload)
     gateway_handle(as_atom, payload, state)

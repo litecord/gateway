@@ -12,14 +12,13 @@ defmodule Gateway.Bridge do
   end
   
   def hb_interval() do
-    10000
+    5000
   end
 
   def encode(map, state) do
     encoded = case state.encoding do
 		"json" ->
-		  {:ok, raw} = JSEX.encode(map)
-		  raw
+		  Poison.encode!(map)
 	      end
 
     if state.compress do
@@ -32,18 +31,22 @@ defmodule Gateway.Bridge do
   def decode(data, state) do
     case state.encoding do
       "json" ->
-	{:ok, map} = JSEX.decode(data)
-	map
+	Poison.decode!(data)
     end
   end
   
   def init(req, _state) do
     {peer_ip, peer_port} = :cowboy_req.peer(req)
-    Logger.info "New client at #{peer_ip}:#{peer_port}"
+    Logger.info "New client at #{inspect peer_ip}:#{inspect peer_port}"
     {:cowboy_websocket, req, %State{heartbeat: false,
 				    identify: false,
 				    encoding: "json",
 				    compress: false}}
+  end
+
+  def terminate(reason, _req, _state) do
+    Logger.info "Terminated from #{inspect reason}"
+    :ok
   end
 
   def hb_timer() do
@@ -71,7 +74,7 @@ defmodule Gateway.Bridge do
   end
 
   # erlang timer handlers
-  def websocket_info(:req_heartbeat, state) do
+  def websocket_info({:timeout, _ref, :req_heartbeat}, state) do
     case state.heartbeat do
       true ->
 	hb_timer()

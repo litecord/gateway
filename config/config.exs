@@ -2,7 +2,8 @@ use Mix.Config
 
 config :gateway,
   adapter: Ecto.Adapters.Postgres,
-  ecto_repos: [Gateway.Repo]
+  ecto_repos: [Gateway.Repo],
+  bridge_password: "123"
 
 config :gateway, Gateway.Repo,
   adapter: Ecto.Adapters.Postgres,
