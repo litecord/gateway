@@ -66,6 +66,8 @@ defmodule Gateway.Bridge do
     payload = decode(frame, state)
     IO.puts "recv payload: #{inspect payload}"
     %{"op" => opcode} = payload
+
+    # TODO: Update the state in Gateway.SharedSession
     handle_payload(opcode, payload, state)
   end
 
@@ -127,7 +129,16 @@ defmodule Gateway.Bridge do
   def handle_payload(4, _payload, state) do
     #%{"" => nonce,
     #  "" => q} = decode(payload, state)
-    {:ok, state}
+    %{"n" => nonce,
+      "w" => request,
+      "a" => args} = decode(payload, state)
+    response = request_call(w, a)
+    response_payload = encode(%{op: 5,
+				n: nonce,
+				r: response
+			       }, state)
+
+    {:reply, {:text, response_payload}, state}
   end
 
   @doc """
