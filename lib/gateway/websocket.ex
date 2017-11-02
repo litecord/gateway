@@ -162,13 +162,13 @@ defmodule Gateway.Websocket do
   Handle HEARTBEAT packets by the client.
   Send HEARTBEAT ACK packets
   """
-  def gateway_handle(:heartbeat, %{d: seq}, state) do
-    case state.identified do
-      true ->
+  def gateway_handle(:heartbeat, %{"d" => seq}, state) do
+    case state.session_id do
+      nil ->
+	{:reply, {:close, 4003, "Not authenticated"}, state}
+      _ ->
 	{:reply, payload(:ack, state),
 	 Map.put(state, :recv_seq, seq)}
-      _ ->
-	{:reply, {:close, 4003, "Not authenticated"}, state}
     end
   end
 
