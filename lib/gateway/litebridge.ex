@@ -68,7 +68,15 @@ defmodule Gateway.Bridge do
     %{"op" => opcode} = payload
 
     # TODO: Update the state in Gateway.SharedSession
-    handle_payload(opcode, payload, state)
+    case handle_payload(opcode, payload, state) do
+      {:ok, state} ->
+	Logger.debug "Updated state: #{inspect state}"
+	{:ok, state}
+      {:reply, frame, state} ->
+	Logger.debug "Updated state: #{inspect state}"
+	{:reply, frame, state}
+      any -> any
+    end
   end
 
   def websocket_handle(_any_frame, state) do

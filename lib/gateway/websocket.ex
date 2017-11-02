@@ -127,7 +127,8 @@ defmodule Gateway.Websocket do
   def websocket_handle({:text, content}, state) do
     payload = decode(content, state)
     IO.puts "Received payload: #{inspect payload}"
-    as_atom = opcode_atom(payload)
+    as_atom = opcode_atom(payload["op"])
+    IO.inspect as_atom
     gateway_handle(as_atom, payload, state)
   end
 
@@ -177,6 +178,12 @@ defmodule Gateway.Websocket do
   """
   def gateway_handle(:identify, payload, state) do
     # {:reply, payload(:ack), Map.put(state, :seq, seq)}
+    {:ok, state}
+  end
+
+  def gateway_handle(atomp, _payload, state) do
+    Logger.info "Handling nothing, #{inspect atomp}"
+    {:ok, state}
   end
 
   # TODO: insert rest
