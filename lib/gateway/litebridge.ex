@@ -126,16 +126,16 @@ defmodule Gateway.Bridge do
   Handle a specific request from the client.
   Sends OP 5 Response.
   """
-  def handle_payload(4, _payload, state) do
+  def handle_payload(4, payload, state) do
     #%{"" => nonce,
     #  "" => q} = decode(payload, state)
     %{"n" => nonce,
       "w" => request,
       "a" => args} = decode(payload, state)
-    response = request_call(w, a)
+    #response = request_call(w, args)
     response_payload = encode(%{op: 5,
 				n: nonce,
-				r: response
+				#r: response
 			       }, state)
 
     {:reply, {:text, response_payload}, state}
