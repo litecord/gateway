@@ -17,12 +17,13 @@ defmodule Gateway.Websocket do
   Default heartbeating interval to the client.
   """
   def hb_interval() do
-    41250
+    # 41250
+    1000
   end
 
   def hb_timer() do
     Logger.info "start timer"
-    :erlang.send_after(hb_interval(), self(), [:heartbeat])
+    :erlang.send_after(hb_interval() + 1000, self(), [:heartbeat])
   end
   
   def init(req, _state) do
@@ -107,7 +108,7 @@ defmodule Gateway.Websocket do
   def payload(:ack, pid) do
     %{
       op: opcode(:ack),
-      d: nil
+      d: nil,
     }
     |> encode(pid)
   end
@@ -153,7 +154,7 @@ defmodule Gateway.Websocket do
     Logger.info "Sending a hello packet"
 
     # Spin up a Gateway.State GenServer
-    {:ok, pid} = Gateway.State.start_link()
+    {:ok, pid} = Gateway.State.start_link(self())
 
     hello = %{
       op: opcode(:hello),
@@ -211,7 +212,7 @@ defmodule Gateway.Websocket do
 	{:reply, {:close, 4003, "Not authenticated"}, pid}
       _ ->
 	Gateway.State.put(pid, :recv_seq, seq)
-	{:reply, payload(:ack, pid), pid}
+	{:reply, {:text, payload(:ack, pid)}, pid}
     end
   end
 
@@ -241,7 +242,7 @@ defmodule Gateway.Websocket do
 	Presence.dispatch(pid, presence)
 
 	new_payload = dispatch(pid, :ready)
-	Logger.debug "#{inspect new_payload}"
+	Logger.debug "new payload : #{inspect new_payload}"
 	{:reply, new_payload, pid}
       _ ->
 	{:reply, {:close, 4005, "Already authenticated"}, pid}

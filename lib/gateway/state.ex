@@ -50,12 +50,13 @@ defmodule Gateway.State do
     defstruct [:session_id, :token, :user_id, :events,
 	       :recv_seq, :sent_seq, :heartbeat,
 	       :encoding, :compress, :shard_id, :sharded,
-	       :properties, :large]
+	       :properties, :large, :parent]
   end
   
-  def start_link() do
+  def start_link(parent) do
     Logger.info "Spinning up state GenServer"
-    GenServer.start_link(__MODULE__, %StateStruct{events: [],
+    GenServer.start_link(__MODULE__, %StateStruct{parent: parent,
+						  events: [],
 						  recv_seq: 0,
 						  sent_seq: 0,
 						  heartbeat: false,
@@ -64,6 +65,7 @@ defmodule Gateway.State do
 						  sharded: false})
   end
 
+  # Client api
   def get(pid, key) do
     Logger.info "state get: #{inspect pid} -> #{inspect key}"
     GenServer.call(pid, {:get, key})
@@ -71,7 +73,12 @@ defmodule Gateway.State do
 
   def put(pid, key, value) do
     Logger.info "state put #{inspect pid} -> #{inspect key} : #{inspect value}"
-    GenServer.call(pid, {:put, key, value})
+    GenServer.cast(pid, {:put, key, value})
+  end
+
+  # Server callbacks
+  def init(state) do
+    {:ok, state}
   end
 
   def handle_call({:get, key}, _from, state) do
@@ -79,8 +86,10 @@ defmodule Gateway.State do
     {:reply, Map.get(state, key), state}
   end
 
-  def handle_call({:put, key, value}, _from, state) do
+  def handle_cast({:put, key, value}, state) do
     Logger.info "HANDLING state put #{inspect key} : #{inspect value}"
-    {:reply, :ok, Map.put(state, key, value)}
+    new_state = Map.put(state, key, value)
+    Logger.debug "new state : #{inspect new_state}"
+    {:noreply, new_state}
   end
 end
