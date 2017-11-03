@@ -30,9 +30,7 @@ defmodule Gateway.Websocket do
 
     # TODO: parse querystring here
 
-    # Spin up a Gateway.State GenServer
-    {:ok, state_pid} = Gateway.State.start_link()
-    {:cowbot_websocket, req, state_pid}
+    {:cowboy_websocket, req, nil}
   end
 
   def terminate(reason, _request, state) do
@@ -90,7 +88,7 @@ defmodule Gateway.Websocket do
   end
 
   def decode(raw, pid) do
-    case Gateway.State.get(pid, :encoding)
+    case Gateway.State.get(pid, :encoding) do
       "etf" ->
 	:erlang.binary_to_term(raw, [:safe])
       _ ->
@@ -98,12 +96,11 @@ defmodule Gateway.Websocket do
     end
   end
 
-  def enclose(state, ev_type, data) do
-    %{
-      op: 0,
+  def enclose(pid, ev_type, data) do
+    %{op: 0,
+      s: Gateway.State.get(pid, :sent_seq),
       t: ev_type,
       d: data,
-      seq: state.sent_seq,
     }
   end
   
@@ -116,7 +113,7 @@ defmodule Gateway.Websocket do
   end
 
   def dispatch(pid, :ready) do
-    ready = enclose(state, "READY", %{
+    ready = enclose(pid, "READY", %{
 	  v: 6,
 	  #user: get_user(state.user_id),
 	  user: %{
@@ -131,17 +128,18 @@ defmodule Gateway.Websocket do
 	  },
 	  private_channels: [],
 	  guilds: [],
-	  session_id: Gateway.State.get(pid, :session_id)
+	  session_id: Gateway.State.get(pid, :session_id),
 	  _trace: get_name()
 		    })
-    {:reply, encode(ready, state), state}
+    Logger.debug "Ready packet: #{inspect ready}"
+    {:text, encode(ready, pid)}
   end
 
   def dispatch(pid, :resumed) do
-    {:reply,
-     encode(enclose(pid, "RESUMED",
-	   %{_trace: get_name()}), pid),
-     pid}
+    resumed = enclose(pid, "RESUMED", %{
+	  _trace: get_name()
+		      })
+    {:reply, {:text, encode(resumed, pid)}, pid}
   end
   
   def dispatch(_state, _) do
@@ -151,8 +149,12 @@ defmodule Gateway.Websocket do
   # The logic is that the client
   # will send an IDENTIFY packet soon
   # after receiving this HELLO.
-  def websocket_init(pid) do
+  def websocket_init(_pid) do
     Logger.info "Sending a hello packet"
+
+    # Spin up a Gateway.State GenServer
+    {:ok, pid} = Gateway.State.start_link()
+
     hello = %{
       op: opcode(:hello),
       d: %{
@@ -167,9 +169,8 @@ defmodule Gateway.Websocket do
   # Handle client frames
   def websocket_handle({:text, content}, pid) do
     payload = decode(content, pid)
-    IO.puts "Received payload: #{inspect payload}"
+    Logger.debug "Received payload: #{inspect payload}"
     as_atom = opcode_atom(payload["op"])
-    IO.inspect as_atom
     gateway_handle(as_atom, payload, pid)
   end
 
@@ -236,17 +237,15 @@ defmodule Gateway.Websocket do
 
 	Presence.guild_sub(pid, :all)
 	
-	case state do
-	  {:error, errcode, errmessage} ->
-	    {:reply, {:error, errcode, errmessage}, state}
-	  _ ->
-	    presence = Map.get(payload, "presence", Presence.default_presence())
-	    Presence.dispatch(pid, presence)
-	    {:reply, dispatch(pid, :ready), state}
-	end
+	presence = Map.get(payload, "presence", Presence.default_presence())
+	Presence.dispatch(pid, presence)
+
+	new_payload = dispatch(pid, :ready)
+	Logger.debug "#{inspect new_payload}"
+	{:reply, new_payload, pid}
       _ ->
 	{:reply, {:close, 4005, "Already authenticated"}, pid}
-     end
+    end
   end
 
   def gateway_handle(atomp, _payload, state) do

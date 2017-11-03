@@ -11,10 +11,10 @@ defmodule Presence do
     }
   end
 
-  def dispatch(state, presence) do
-    Enum.each(Gateway.State.get_conns(state), fn pid ->
-      send pid, {:dispatch, presence}
-    end)
+  def dispatch(_state, _presence) do
+    #Enum.each(Gateway.State.get_conns(state), fn pid ->
+    #  send pid, {:dispatch, presence}
+    #end)
   end
 
   def guild_sub(_state, :all) do

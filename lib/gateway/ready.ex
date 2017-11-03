@@ -1,13 +1,13 @@
 defmodule Gateway.Ready do
   @moduledoc false
 
-  def check_token(pid, _token) do
+  def check_token(_pid, _token) do
     # Query user ID in the token
   end
 
-  def check_shard(pid, shard) do
+  def check_shard(_pid, shard) do
     # TODO: add shard sanity checking
-    if Enum.length(shard) != 2 do
+    if Enum.count(shard) != 2 do
       send self(), {:ready_error, {:error, 4010, "Invalid shard (len)"}}
     end
 

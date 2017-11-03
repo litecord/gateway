@@ -54,6 +54,7 @@ defmodule Gateway.State do
   end
   
   def start_link() do
+    Logger.info "Spinning up state GenServer"
     GenServer.start_link(__MODULE__, %StateStruct{events: [],
 						  recv_seq: 0,
 						  sent_seq: 0,
@@ -64,18 +65,22 @@ defmodule Gateway.State do
   end
 
   def get(pid, key) do
+    Logger.info "state get: #{inspect pid} -> #{inspect key}"
     GenServer.call(pid, {:get, key})
   end
 
   def put(pid, key, value) do
-    GenServer.call(:put, pid, {key, value})
+    Logger.info "state put #{inspect pid} -> #{inspect key} : #{inspect value}"
+    GenServer.call(pid, {:put, key, value})
   end
 
   def handle_call({:get, key}, _from, state) do
+    Logger.info "HANDLING state get: #{inspect key}"
     {:reply, Map.get(state, key), state}
   end
 
   def handle_call({:put, key, value}, _from, state) do
-    {:noreply, Map.put(state, key, value)}
+    Logger.info "HANDLING state put #{inspect key} : #{inspect value}"
+    {:reply, :ok, Map.put(state, key, value)}
   end
 end
