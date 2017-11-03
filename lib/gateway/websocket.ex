@@ -196,7 +196,7 @@ defmodule Gateway.Websocket do
     end
   end
 
-  def websocket_info(dispatch, pid) do
+  def websocket_info({:send, dispatch}, pid) do
     {:reply, dispatch, pid}
   end
   
