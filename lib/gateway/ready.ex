@@ -5,9 +5,22 @@ defmodule Gateway.Ready do
   websocket connection
   """
   require Logger
+  import Ecto.Query, only: [from: 2]
 
-  def check_token(_pid, _token) do
+  def check_token(pid, token) do
     # Query user ID in the token
+    [encoded_uid, _] = String.split token, "."
+    user_id = encoded_uid |> Base.url_decode64
+    
+    query = from u in "users",
+      where: u.id == ^user_id,
+      select: u
+
+    user = Gateway.Repo.one(query)
+
+    if not HMAC.valid?(user.password_salt, token) do
+      Gateway.State.send_ws(pid, {:error, 4001, "Authentication Failed"})
+    end
   end
 
   def check_shard(pid, shard) do

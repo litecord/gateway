@@ -244,14 +244,12 @@ defmodule Gateway.Websocket do
 	Gateway.Ready.check_shard(pid, shard)
 	Gateway.Ready.fill_session(pid, prop, compress, large)
 
-	Presence.guild_sub(pid, :all)
+	Presence.subscribe(pid, :all)
 	
 	presence = Map.get(payload, "presence", Presence.default_presence())
-	Presence.dispatch(pid, presence)
+	Presence.dispatch_users(pid, presence)
 
-	new_payload = dispatch(pid, :ready)
-	Logger.debug "new payload : #{inspect new_payload}"
-	{:reply, new_payload, pid}
+	{:reply, dispatch(pid, :ready), pid}
       _ ->
 	{:reply, {:close, 4005, "Already authenticated"}, pid}
     end
