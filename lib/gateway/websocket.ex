@@ -189,7 +189,7 @@ defmodule Gateway.Websocket do
 	{:ok, pid}
       false ->
 	Logger.info "all bad"
-	{:reply, {:close, 4009, "Session timeout"}, pid}
+	{:reply, {:close, 4009, "Heartbeat timeout"}, pid}
     end
   end
 
@@ -212,6 +212,7 @@ defmodule Gateway.Websocket do
 	{:reply, {:close, 4003, "Not authenticated"}, pid}
       _ ->
 	Gateway.State.put(pid, :recv_seq, seq)
+	Gateway.State.put(pid, :heartbeat, true)
 	{:reply, {:text, payload(:ack, pid)}, pid}
     end
   end
