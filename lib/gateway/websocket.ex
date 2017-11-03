@@ -17,12 +17,13 @@ defmodule Gateway.Websocket do
   Default heartbeating interval to the client.
   """
   def hb_interval() do
-    # 41250
-    1000
+    41250
   end
 
   def hb_timer() do
     Logger.info "start timer"
+ 
+    # We add 1 second more because the world is bad
     :erlang.send_after(hb_interval() + 1000, self(), [:heartbeat])
   end
   
@@ -154,7 +155,7 @@ defmodule Gateway.Websocket do
     Logger.info "Sending a hello packet"
 
     # Spin up a Gateway.State GenServer
-    {:ok, pid} = Gateway.State.start_link(self())
+    {:ok, pid} = Gateway.State.start(self())
 
     hello = %{
       op: opcode(:hello),
@@ -179,6 +180,8 @@ defmodule Gateway.Websocket do
     {:ok, state}
   end
 
+  # handle incoming messages
+
   def websocket_info([:heartbeat], pid) do
     Logger.info "Checking heartbeat state"
     case Gateway.State.get(pid, :heartbeat) do
@@ -193,6 +196,10 @@ defmodule Gateway.Websocket do
     end
   end
 
+  def websocket_info(dispatch, pid) do
+    {:reply, dispatch, pid}
+  end
+  
   def websocket_info(data, state) do
     Logger.info "w_info = #{inspect data}"
     {:ok, state}

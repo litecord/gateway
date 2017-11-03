@@ -53,16 +53,16 @@ defmodule Gateway.State do
 	       :properties, :large, :parent]
   end
   
-  def start_link(parent) do
+  def start(parent) do
     Logger.info "Spinning up state GenServer"
-    GenServer.start_link(__MODULE__, %StateStruct{parent: parent,
-						  events: [],
-						  recv_seq: 0,
-						  sent_seq: 0,
-						  heartbeat: false,
-						  encoding: "json",
-						  compress: false,
-						  sharded: false})
+    GenServer.start(__MODULE__, %StateStruct{parent: parent,
+					     events: [],
+					     recv_seq: 0,
+					     sent_seq: 0,
+					     heartbeat: false,
+					     encoding: "json",
+					     compress: false,
+					     sharded: false})
   end
 
   # Client api
@@ -74,6 +74,10 @@ defmodule Gateway.State do
   def put(pid, key, value) do
     Logger.info "state put #{inspect pid} -> #{inspect key} : #{inspect value}"
     GenServer.cast(pid, {:put, key, value})
+  end
+
+  def send_ws(pid, frame) do
+    GenServer.cast(pid, {:send, frame})
   end
 
   # Server callbacks
@@ -91,5 +95,9 @@ defmodule Gateway.State do
     new_state = Map.put(state, key, value)
     Logger.debug "new state : #{inspect new_state}"
     {:noreply, new_state}
+  end
+
+  def handle_cast(dispatch, state) do
+    send state.parent, dispatch
   end
 end
