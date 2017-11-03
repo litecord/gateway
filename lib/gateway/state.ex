@@ -67,12 +67,12 @@ defmodule Gateway.State do
 
   # Client api
   def get(pid, key) do
-    Logger.info "state get: #{inspect pid} -> #{inspect key}"
+    # Logger.info "state get: #{inspect pid} -> #{inspect key}"
     GenServer.call(pid, {:get, key})
   end
 
   def put(pid, key, value) do
-    Logger.info "state put #{inspect pid} -> #{inspect key} : #{inspect value}"
+    # Logger.info "state put #{inspect pid} -> #{inspect key} : #{inspect value}"
     GenServer.cast(pid, {:put, key, value})
   end
 
@@ -93,7 +93,6 @@ defmodule Gateway.State do
   def handle_cast({:put, key, value}, state) do
     Logger.info "HANDLING state put #{inspect key} : #{inspect value}"
     new_state = Map.put(state, key, value)
-    Logger.debug "new state : #{inspect new_state}"
     {:noreply, new_state}
   end
 

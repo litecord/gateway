@@ -1,5 +1,9 @@
 defmodule Gateway.Ready do
-  @moduledoc false
+  @moduledoc """
+  Helper functions to validate
+  the Identify->Ready part of the
+  websocket connection
+  """
   require Logger
 
   def check_token(_pid, _token) do
@@ -7,7 +11,6 @@ defmodule Gateway.Ready do
   end
 
   def check_shard(pid, shard) do
-    # TODO: add shard sanity checking
     if Enum.count(shard) != 2 do
       Logger.info "Invalid shard"
       Gateway.State.send_ws(pid, {:error, 4010, "Invalid shard (len)"})
@@ -24,10 +27,17 @@ defmodule Gateway.Ready do
       Gateway.State.send_ws(pid, {:error, 4010, "Invalid shard (id > count)"})
     end
   end
-  
+
+  def generate_session_id() do
+    # TODO: how to make session IDs not collide
+    # with one another?
+    random_data = for _ <- 1..30, do: Enum.random(0..255)
+    :crypto.hash(:md5, random_data) |> Base.encode16(case: :lower)
+  end
+ 
   def fill_session(pid, properties, compress, large) do
     # TODO: generate session_id
-    Gateway.State.put(pid, :session_id, "gay")
+    Gateway.State.put(pid, :session_id, generate_session_id())
 
     # your usual connection properties
     Gateway.State.put(pid, :properties, properties)
