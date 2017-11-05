@@ -9,9 +9,9 @@ defmodule Gateway.Ready do
 
   def check_token(pid, token) do
     # Query user ID in the token
-    [encoded_uid, _] = String.split token, "."
+    [encoded_uid, _, _] = String.split token, "."
     user_id = encoded_uid |> Base.url_decode64
-    
+
     query = from u in "users",
       where: u.id == ^user_id,
       select: u
