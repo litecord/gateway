@@ -1,7 +1,10 @@
 defmodule Gateway.Cowboy do
+  require Logger
+
   def start_link() do
     dispatch_config = build_dispatch_config()
 
+    Logger.info "Starting cowboy"
     {:ok, _} = :cowboy.start_clear(:http,
       [{:port, 8080}],
       %{env: %{dispatch: dispatch_config}}

@@ -9,8 +9,8 @@ defmodule Gateway.Supervisor do
     import Supervisor.Spec
 
     children = [
+	Gateway.Repo,
 	supervisor(Gateway.Cowboy, []),
-	supervisor(Gateway.Repo, [])
     ]
 
     opts = [strategy: :one_for_one, name: Gateway.Supervisor]

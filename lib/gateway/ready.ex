@@ -8,18 +8,22 @@ defmodule Gateway.Ready do
   import Ecto.Query, only: [from: 2]
 
   def check_token(pid, token) do
-    # Query user ID in the token
     [encoded_uid, _, _] = String.split token, "."
-    user_id = encoded_uid |> Base.url_decode64
+    {:ok, user_id} = encoded_uid |> Base.url_decode64
 
+    Logger.info "Querying ID #{user_id}"
     query = from u in "users",
       where: u.id == ^user_id,
-      select: u
+      select: u.password_salt
 
-    user = Gateway.Repo.one(query)
+    Gateway.Repo.one(query)
 
-    if not HMAC.valid?(user.password_salt, token) do
-      Gateway.State.send_ws(pid, {:error, 4001, "Authentication Failed"})
+    # Offload that to bridge
+    case Litebridge.request("TOKEN_VALIDATE", [token]) do
+      [false, err] ->
+	Logger.info "auth failed: #{err}"
+	Gateway.State.send_ws(pid, {:error, 4001, "Authentication Failed"})
+      any -> any
     end
   end
 

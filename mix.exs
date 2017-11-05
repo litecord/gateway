@@ -15,7 +15,7 @@ defmodule Gateway.Mixfile do
   def application do
     [
       mod: {Gateway, []},
-      applications: [:cowboy, :ranch],
+      applications: [:cowboy, :ranch, :ecto, :postgrex],
       extra_applications: [:logger]
     ]
   end

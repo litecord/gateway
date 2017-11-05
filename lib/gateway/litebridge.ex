@@ -58,6 +58,8 @@ defmodule Gateway.Bridge do
     hb_timer()
     hello = encode(%{op: 0,
 		     hb_interval: hb_interval()}, state)
+
+    Litebridge.start_link self()
     {:reply, {:text, hello}, state}
   end
 
@@ -66,17 +68,7 @@ defmodule Gateway.Bridge do
     payload = decode(frame, state)
     IO.puts "recv payload: #{inspect payload}"
     %{"op" => opcode} = payload
-
-    # TODO: Update the state in Gateway.SharedSession
-    case handle_payload(opcode, payload, state) do
-      {:ok, state} ->
-	Logger.debug "Updated state: #{inspect state}"
-	{:ok, state}
-      {:reply, frame, state} ->
-	Logger.debug "Updated state: #{inspect state}"
-	{:reply, frame, state}
-      any -> any
-    end
+    handle_payload(opcode, payload, state)
   end
 
   def websocket_handle(_any_frame, state) do
@@ -150,6 +142,13 @@ defmodule Gateway.Bridge do
   end
 
   @doc """
+  Handle OP 5 Response.
+  """
+  def handle_payload(5, payload, state) do
+    send state.bridge_pid, {:response, payload["n"], payload["d"]}
+  end
+  
+  @doc """
   Handle OP 6 Dispatch.
 
   Do a request that won't have any response back.
@@ -158,4 +157,37 @@ defmodule Gateway.Bridge do
     {:ok, state}
   end
 
+end
+
+
+defmodule Litebridge do
+  use GenServer
+
+  def start_link(parent) do
+    GenServer.start_link(__MODULE__, parent, [name: :litebridge])
+  end
+
+  def request(r_type, r_args) do
+    GenServer.cast(:litebridge, {:request, r_type, r_args})
+  end
+
+  # server callbacks
+
+  def init(parent) do
+    {:ok, %{parent: parent}}
+  end
+
+  def handle_call({:request, r_type, r_args}, _from, state) do
+    random_nonce = "123"
+    send state.ws_pid, {:send, %{
+			   op: 4,
+			   w: r_type,
+			   a: r_args,
+			   n: random_nonce
+			}}
+    
+  end
+
+  def handle_info({:response, nonce, data}, _from, state) do
+  end
 end
