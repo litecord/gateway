@@ -168,7 +168,7 @@ defmodule Litebridge do
   end
 
   def request(r_type, r_args) do
-    GenServer.cast(:litebridge, {:request, r_type, r_args})
+    GenServer.call(:litebridge, {:request, r_type, r_args})
   end
 
   # server callbacks
@@ -177,17 +177,37 @@ defmodule Litebridge do
     {:ok, %{parent: parent}}
   end
 
-  def handle_call({:request, r_type, r_args}, _from, state) do
-    random_nonce = "123"
+  def gen_nonce() do
+    data = for _ <- 1..15, do: Enum.random(0..255)
+
+    :crypto.hash(:md5, data)
+    |> Base.encode16(case: :lower)
+    |> String.slice(0, 8)
+  end
+
+  def handle_call({:request, r_type, r_args}, from, state) do
+    random_nonce = gen_nonce()
+
     send state.ws_pid, {:send, %{
 			   op: 4,
 			   w: r_type,
 			   a: r_args,
 			   n: random_nonce
 			}}
-    
+
+    GenServer.cast(:litebridge, {:call_timeout, from})
+    {:noreply, %{state | random_nonce => from}}
+  end
+
+  def handle_cast({:call_timeout, pid}, state) do
+    Process.sleep(5000)
+    GenServer.reply(pid, :timeout)
+    {:noreply, state}
   end
 
   def handle_info({:response, nonce, data}, _from, state) do
+    pid = state[nonce]
+    GenServer.reply(pid, data)
+    {:noreply, Map.delete(state, nonce)}
   end
 end
