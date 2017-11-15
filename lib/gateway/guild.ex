@@ -1,3 +1,19 @@
+defmodule Guild do
+  @moduledoc """
+  General functions for guilds
+  """
+  import Ecto.Query, only: [from: 2]
+  
+  @spec all_guilds(String.t) :: [String.t]
+  def all_guilds(user_id) do
+    query = from m in "members",
+      where: m.user_id == ^user_id,
+      select: m.guild_id
+
+    Gateway.Repo.all(query)
+  end
+end
+
 defmodule Guild.Registry do
   use GenServer
   require Logger
