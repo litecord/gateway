@@ -36,6 +36,21 @@ defmodule Presence do
     {:ok, %{}}
   end
 
+  @spec all_guilds(pid(), :subscribe | :unsubscribe) :: nil
+  @doc """
+  Send an sub/unsub message to all guilds
+  a user is in.
+  """
+  defp all_guilds(state_pid, atom) do
+    user_id = State.get(state_pid, :user_id)
+
+    Guild.get_guilds(user_id)
+    |> Enum.each(fn guild ->
+      # send to myself
+      GenServer.cast(:presence, {atom, user_id, guild.id})
+    end)
+  end
+
   @doc """
   Dispatch a presence object to all subscribed users
   that share mutual servers with another user
@@ -59,7 +74,7 @@ defmodule Presence do
       # and send the presence data to it
       # (via websocket)
       Enum.each(user_ids, fn user_id ->
-	case State.Registry.find_uid(user_id) do
+	case State.Registry.get(user_id) do
 	  {:ok, state_pid} ->
 	    State.send_ws(state_pid,
 	      {:text, Gateway.Websocket.encode(presence, state_pid)}
@@ -75,20 +90,14 @@ defmodule Presence do
   end
 
   # Subscribe and unsubscribe from all guilds
+
   def handle_cast({:subscribe, state_pid, :all}, state) do
-    user_id = State.get(state_pid, :user_id)
-    Enum.each(Guild.all_guilds(user_id), fn guild ->
-      GenServer.cast(:presence, {:subscribe, user_id, guild.id})
-    end)
+    all_guilds(state_pid, :subscribe)
     {:noreply, state}
   end
 
   def handle_cast({:unsubscribe, state_pid, :all}, state) do
-    user_id = State.get(state_pid, :user_id)
-
-    Enum.each(Guild.all_guilds(user_id), fn guild ->
-      GenServer.cast(:presence, {:unsubscribe, user_id, guild.id})
-    end)
+    all_guilds(state_pid, :unsubscribe)
     {:noreply, state}
   end
 
