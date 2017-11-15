@@ -1,7 +1,9 @@
 defmodule Guild.Registry do
   use GenServer
+  require Logger
 
   def start_link(state) do
+    Logger.info "starting guild registry"
     GenServer.start_link(__MODULE__, state, name: __MODULE__)
   end
 
@@ -19,6 +21,7 @@ defmodule Guild.Registry do
     case Map.get(state, guild_id) do
       nil ->
 	# create new GenGuild
+	Logger.info "Creating new GenGuild for #{guild_id}"
 	{:ok, pid} = GenGuild.start_link(guild_id)
 	{:reply, pid, Map.put(state, guild_id, pid)}
       g ->
@@ -30,8 +33,10 @@ end
 
 defmodule GenGuild do
   use GenServer
+  require Logger
   
   def start_link(guild_id) do
+    Logger.info "starting GenGuild with guild_id #{guild_id}"
     GenServer.start_link(__MODULE__, guild_id, name: __MODULE__)
   end
 
@@ -59,10 +64,12 @@ defmodule GenGuild do
      }}
   end
 
+  ## calls
   def handle_call({:get_subs}, _from, state) do
     {:reply, state.subscribed, state}
   end
 
+  ## casts
   def handle_cast({:sub, user_id}, state) do
     uids = state.subscribed
     {:noreply, %{state |

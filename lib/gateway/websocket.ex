@@ -6,13 +6,6 @@ defmodule Gateway.Websocket do
   require Logger
   @behaviour :cowboy_websocket
 
-  defmodule State do
-    @moduledoc """
-    Represents a connection state
-    In litecord.
-    """
-  end
-
   @doc """
   Default heartbeating interval to the client.
   """

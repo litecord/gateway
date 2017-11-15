@@ -1,3 +1,41 @@
+defmodule State.Registry do
+  use GenServer
+  require Logger
+
+  def start_link(_) do
+    Logger.info "starting state registry"
+    GenServer.start_link(__MODULE__, :ok, name: __MODULE__)
+  end
+
+  ## client api
+  @spec get(String.t) :: pid() | nil
+  def get(user_id) do
+    GenServer.call(__MODULE__, {:get, user_id})
+  end
+
+  @spec set(String.t, pid()) :: :ok
+  def set(user_id, state_pid) do
+    GenServer.call(__MODULE__, {:set, user_id, state_pid})
+  end
+
+  ## server callbacks
+  def init(:ok) do
+    {:ok, %{}}
+  end
+
+  # TODO: add another key to user_id, guild_id
+  # since we have sharding stuff
+  def handle_call({:get, user_id}, _from, state) do
+    Logger.debug "getting state for #{user_id}"
+    {:reply, Map.get(state, user_id), state}
+  end
+
+  def handle_call({:set, user_id, state_pid}, _from, state) do
+    Logger.debug "setting state for #{user_id} => #{inspect state_pid}"
+    {:reply, :ok, Map.put(state, user_id, state_pid)}
+  end
+end
+
 defmodule State do
   use GenServer
   require Logger
@@ -56,3 +94,4 @@ defmodule State do
     send state.parent, dispatch
   end
 end
+
