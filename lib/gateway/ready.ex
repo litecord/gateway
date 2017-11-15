@@ -23,7 +23,8 @@ defmodule Gateway.Ready do
       [false, err] ->
 	Logger.info "auth failed: #{err}"
 	Gateway.State.send_ws(pid, {:error, 4001, "Authentication Failed"})
-      any -> any
+      true ->
+	Gateway.State.put(pid, :user_id, user_id)
     end
   end
 

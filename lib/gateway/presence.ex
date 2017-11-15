@@ -1,5 +1,6 @@
 defmodule Presence do
   use GenServer
+  require Logger
 
   def start() do
     GenServer.start(__MODULE__, :ok, [name: :presence])
@@ -40,13 +41,36 @@ defmodule Presence do
   that share mutual servers with another user
   """
   def handle_cast({:dispatch_users, state_pid, presence}, state) do
-    Guild.mutual_users_sub(state_pid)
-    |> Enum.each(fn other_pid ->
-      Gateway.State.send_ws(other_pid,
-	{:text, Gateway.Websocket.encode(presence, state_pid)}
-      )
-    end)
+    # First, fetch all the guilds the user is in
+    user_id = Gateway.State.get(state_pid, :user_id)
+    guilds = Guild.get_guilds(user_id)
 
+    # Now, with a list of guild structs, we can
+    # ask the guild registry to fetch all
+    # subscribed users in the guild
+
+    guilds
+    |> Enum.each(fn guild ->
+      guild_pid = Guild.Registry.get(guild.id)
+      user_ids = GenGuild.get_subs(guild_pid)
+
+      # For each subscribed user in the guild,
+      # get the state object that links to them
+      # and send the presence data to it
+      # (via websocket)
+      Enum.each(user_ids, fn user_id ->
+	case Gateway.State.find_uid(user_id) do
+	  {:ok, state_pid} ->
+	    Gateway.State.send_ws(state_pid,
+	      {:text, Gateway.Websocket.encode(presence, state_pid)}
+	    )
+	  {:error, err} ->
+	    Logger.warn "Failed to dispatch to #{user_id}: #{err}"
+	end
+
+      end)
+    end)
+    
     {:noreply, state}
   end
 
@@ -54,7 +78,7 @@ defmodule Presence do
   def handle_cast({:subscribe, state_pid, :all}, state) do
     user_id = Gateway.State.get(state_pid, :user_id)
     Enum.each(Guild.all_guilds(user_id), fn guild ->
-      GenServer.cast(:presence, {:subscribe, state_pid, guild.id})
+      GenServer.cast(:presence, {:subscribe, user_id, guild.id})
     end)
     {:noreply, state}
   end
@@ -63,13 +87,13 @@ defmodule Presence do
     user_id = Gateway.State.get(state_pid, :user_id)
 
     Enum.each(Guild.all_guilds(user_id), fn guild ->
-      GenServer.cast(:presence, {:unsubscribe, state_pid, guild.id})
+      GenServer.cast(:presence, {:unsubscribe, user_id, guild.id})
     end)
     {:noreply, state}
   end
 
   # Subscribe and unsubscribe to a specific guild
-  def handle_cast({:sub, state_pid, guild_id}, state) do
+  def handle_cast({:sub, user_id, guild_id}, state) do
     # First, get the guild genserver which
     # handles the subsribed state to the guild
 
@@ -79,18 +103,14 @@ defmodule Presence do
 
     # Signal the guild we have this user to be in its
     # subscribed state
-    user_id = Gateway.State.get(state_pid, :user_id)
-
     GenGuild.subscribe(guild_pid, user_id)
     {:noreply, state}
   end
 
-  def handle_cast({:unsub, state_pid, guild_id}, state) do
+  def handle_cast({:unsub, user_id, guild_id}, state) do
     # Follow the same strategy, but unsubscribe
     guild_pid = Guild.Registry.get(guild_id)
-    uid = Gateway.State.get(state_pid, :user_id)
-
-    GenGuild.unsubscribe(guild_pid, uid)
+    GenGuild.unsubscribe(guild_pid, user_id)
     {:noreply, state}
   end
 end

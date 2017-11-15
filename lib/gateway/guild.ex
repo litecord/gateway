@@ -44,12 +44,23 @@ defmodule GenGuild do
     GenServer.cast(pid, {:unsub, uid})
   end
 
+  @doc """
+  Get all users subscribed to a guild
+  """
+  def get_subs(pid) do
+    GenServer.call(pid, {:get_subs})
+  end
+
   ## server callbacks
   def init(guild_id) do
     {:ok, %{
 	id: guild_id,
 	subscribed: []
      }}
+  end
+
+  def handle_call({:get_subs}, _from, state) do
+    {:reply, state.subscribed, state}
   end
 
   def handle_cast({:sub, user_id}, state) do
@@ -67,4 +78,5 @@ defmodule GenGuild do
 		}
     }
   end
+
 end
