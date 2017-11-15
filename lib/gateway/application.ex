@@ -6,14 +6,14 @@ defmodule Gateway.Supervisor do
   end
 
   def init(:ok) do
-    import Supervisor.Spec
-
-    children = [
-	Gateway.Repo,
-	supervisor(Gateway.Cowboy, []),
-    ]
-
     opts = [strategy: :one_for_one, name: Gateway.Supervisor]
-    Supervisor.init(children, opts)
+    Supervisor.init([
+      Gateway.Repo,
+      Guild.Registry,
+      %{
+	id: Gateway.Cowboy,
+	start: {Gateway.Cowboy, :start_link, []}
+      },
+    ], opts)
   end
 end

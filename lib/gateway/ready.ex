@@ -48,12 +48,13 @@ defmodule Gateway.Ready do
   def generate_session_id() do
     # TODO: how to make session IDs not collide
     # with one another?
+
+    # SOLUTION: don't care about it
     random_data = for _ <- 1..30, do: Enum.random(0..255)
     :crypto.hash(:md5, random_data) |> Base.encode16(case: :lower)
   end
  
   def fill_session(pid, properties, compress, large) do
-    # TODO: generate session_id
     Gateway.State.put(pid, :session_id, generate_session_id())
 
     # your usual connection properties

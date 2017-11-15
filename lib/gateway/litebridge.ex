@@ -12,7 +12,7 @@ defmodule Gateway.Bridge do
   end
   
   def hb_interval() do
-    5000
+    20000
   end
 
   def encode(map, state) do
