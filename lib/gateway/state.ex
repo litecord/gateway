@@ -1,4 +1,4 @@
-defmodule Gateway.State do
+defmodule State do
   use GenServer
   require Logger
   

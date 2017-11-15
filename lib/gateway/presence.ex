@@ -42,7 +42,7 @@ defmodule Presence do
   """
   def handle_cast({:dispatch_users, state_pid, presence}, state) do
     # First, fetch all the guilds the user is in
-    user_id = Gateway.State.get(state_pid, :user_id)
+    user_id = State.get(state_pid, :user_id)
     guilds = Guild.get_guilds(user_id)
 
     # Now, with a list of guild structs, we can
@@ -59,9 +59,9 @@ defmodule Presence do
       # and send the presence data to it
       # (via websocket)
       Enum.each(user_ids, fn user_id ->
-	case Gateway.State.find_uid(user_id) do
+	case State.Registry.find_uid(user_id) do
 	  {:ok, state_pid} ->
-	    Gateway.State.send_ws(state_pid,
+	    State.send_ws(state_pid,
 	      {:text, Gateway.Websocket.encode(presence, state_pid)}
 	    )
 	  {:error, err} ->
@@ -76,7 +76,7 @@ defmodule Presence do
 
   # Subscribe and unsubscribe from all guilds
   def handle_cast({:subscribe, state_pid, :all}, state) do
-    user_id = Gateway.State.get(state_pid, :user_id)
+    user_id = State.get(state_pid, :user_id)
     Enum.each(Guild.all_guilds(user_id), fn guild ->
       GenServer.cast(:presence, {:subscribe, user_id, guild.id})
     end)
@@ -84,7 +84,7 @@ defmodule Presence do
   end
 
   def handle_cast({:unsubscribe, state_pid, :all}, state) do
-    user_id = Gateway.State.get(state_pid, :user_id)
+    user_id = State.get(state_pid, :user_id)
 
     Enum.each(Guild.all_guilds(user_id), fn guild ->
       GenServer.cast(:presence, {:unsubscribe, user_id, guild.id})

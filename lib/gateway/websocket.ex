@@ -77,20 +77,20 @@ defmodule Gateway.Websocket do
   end
 
   def encode(map, pid) do
-    encoded = case Gateway.State.get(pid, :encoding) do
+    encoded = case State.get(pid, :encoding) do
 		"etf" -> :erlang.term_to_binary(map)
 		_ ->
 		  Poison.encode!(map)
 	      end
 
-    case Gateway.State.get(pid, :compress) do
+    case State.get(pid, :compress) do
       _ ->
 	:erlang.binary_to_list(encoded)
     end
   end
 
   def decode(raw, pid) do
-    case Gateway.State.get(pid, :encoding) do
+    case State.get(pid, :encoding) do
       "etf" ->
 	:erlang.binary_to_term(raw, [:safe])
       _ ->
@@ -100,7 +100,7 @@ defmodule Gateway.Websocket do
 
   def enclose(pid, ev_type, data) do
     %{op: 0,
-      s: Gateway.State.get(pid, :sent_seq),
+      s: State.get(pid, :sent_seq),
       t: ev_type,
       d: data,
     }
@@ -130,7 +130,7 @@ defmodule Gateway.Websocket do
 	  },
 	  private_channels: [],
 	  guilds: [],
-	  session_id: Gateway.State.get(pid, :session_id),
+	  session_id: State.get(pid, :session_id),
 	  _trace: get_name()
 		    })
     Logger.debug "Ready packet: #{inspect ready}"
@@ -154,8 +154,8 @@ defmodule Gateway.Websocket do
   def websocket_init(_pid) do
     Logger.info "Sending a hello packet"
 
-    # Spin up a Gateway.State GenServer
-    {:ok, pid} = Gateway.State.start(self())
+    # Spin up a State GenServer
+    {:ok, pid} = State.start(self())
 
     hello = %{
       op: opcode(:hello),
@@ -184,11 +184,11 @@ defmodule Gateway.Websocket do
 
   def websocket_info([:heartbeat], pid) do
     Logger.info "Checking heartbeat state"
-    case Gateway.State.get(pid, :heartbeat) do
+    case State.get(pid, :heartbeat) do
       true ->
 	Logger.info "all good"
 	hb_timer()
-	Gateway.State.put(pid, :heartbeat, false)
+	State.put(pid, :heartbeat, false)
 	{:ok, pid}
       false ->
 	Logger.info "all bad"
@@ -214,12 +214,12 @@ defmodule Gateway.Websocket do
   Send HEARTBEAT ACK packets
   """
   def gateway_handle(:heartbeat, %{"d" => seq}, pid) do
-    case Gateway.State.get(pid, :session_id) do
+    case State.get(pid, :session_id) do
       nil ->
 	{:reply, {:close, 4003, "Not authenticated"}, pid}
       _ ->
-	Gateway.State.put(pid, :recv_seq, seq)
-	Gateway.State.put(pid, :heartbeat, true)
+	State.put(pid, :recv_seq, seq)
+	State.put(pid, :heartbeat, true)
 	{:reply, {:text, payload(:ack, pid)}, pid}
     end
   end
@@ -229,7 +229,7 @@ defmodule Gateway.Websocket do
   Dispatches the READY event.
   """
   def gateway_handle(:identify, payload, pid) do
-    case Gateway.State.get(pid, :session_id) do
+    case State.get(pid, :session_id) do
       nil ->
 	%{"token" => token,
 	  "properties" => prop,

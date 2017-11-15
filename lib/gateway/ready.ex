@@ -22,27 +22,27 @@ defmodule Gateway.Ready do
     case Litebridge.request("TOKEN_VALIDATE", [token]) do
       [false, err] ->
 	Logger.info "auth failed: #{err}"
-	Gateway.State.send_ws(pid, {:error, 4001, "Authentication Failed"})
+	State.send_ws(pid, {:error, 4001, "Authentication Failed"})
       true ->
-	Gateway.State.put(pid, :user_id, user_id)
+	State.put(pid, :user_id, user_id)
     end
   end
 
   def check_shard(pid, shard) do
     if Enum.count(shard) != 2 do
       Logger.info "Invalid shard"
-      Gateway.State.send_ws(pid, {:error, 4010, "Invalid shard (len)"})
+      State.send_ws(pid, {:error, 4010, "Invalid shard (len)"})
     end
 
     [shard_id, shard_count] = shard
     if shard_count < 1 do
       Logger.info "Invalid shard from count"
-      Gateway.State.send_ws(pid, {:error, 4010, "Invalid shard (count < 1)"})
+      State.send_ws(pid, {:error, 4010, "Invalid shard (count < 1)"})
     end
 
     if shard_id > shard_count do
       Logger.info "Invalid shard from id"
-      Gateway.State.send_ws(pid, {:error, 4010, "Invalid shard (id > count)"})
+      State.send_ws(pid, {:error, 4010, "Invalid shard (id > count)"})
     end
   end
 
@@ -56,11 +56,11 @@ defmodule Gateway.Ready do
   end
  
   def fill_session(pid, properties, compress, large) do
-    Gateway.State.put(pid, :session_id, generate_session_id())
+    State.put(pid, :session_id, generate_session_id())
 
     # your usual connection properties
-    Gateway.State.put(pid, :properties, properties)
-    Gateway.State.put(pid, :compress, compress)
-    Gateway.State.put(pid, :large, large)
+    State.put(pid, :properties, properties)
+    State.put(pid, :compress, compress)
+    State.put(pid, :large, large)
   end
 end
