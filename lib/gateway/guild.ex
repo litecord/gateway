@@ -4,8 +4,8 @@ defmodule Guild do
   """
   import Ecto.Query, only: [from: 2]
   
-  @spec all_guilds(String.t) :: [String.t]
-  def all_guilds(user_id) do
+  @spec get_guilds(String.t) :: [String.t]
+  def get_guilds(user_id) do
     query = from m in "members",
       where: m.user_id == ^user_id,
       select: m.guild_id

@@ -45,9 +45,9 @@ defmodule Presence do
     user_id = State.get(state_pid, :user_id)
 
     Guild.get_guilds(user_id)
-    |> Enum.each(fn guild ->
+    |> Enum.each(fn guild_id ->
       # send to myself
-      GenServer.cast(:presence, {atom, user_id, guild.id})
+      GenServer.cast(:presence, {atom, user_id, guild_id})
     end)
   end
 
@@ -65,8 +65,8 @@ defmodule Presence do
     # subscribed users in the guild
 
     guilds
-    |> Enum.each(fn guild ->
-      guild_pid = Guild.Registry.get(guild.id)
+    |> Enum.each(fn guild_id ->
+      guild_pid = Guild.Registry.get(guild_id)
       user_ids = GenGuild.get_subs(guild_pid)
 
       # For each subscribed user in the guild,
