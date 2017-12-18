@@ -1,6 +1,6 @@
 defmodule Gateway.Websocket do
   @moduledoc """
-  Main websocket
+  Main websocket handler.
   """
 
   require Logger
@@ -10,7 +10,7 @@ defmodule Gateway.Websocket do
   Default heartbeating interval to the client.
   """
   def hb_interval() do
-    41250
+    41_250
   end
 
   def hb_timer() do
@@ -71,23 +71,23 @@ defmodule Gateway.Websocket do
 
   def encode(map, pid) do
     encoded = case State.get(pid, :encoding) do
-		"etf" -> :erlang.term_to_binary(map)
-		_ ->
-		  Poison.encode!(map)
-	      end
+                "etf" -> :erlang.term_to_binary(map)
+                _ ->
+                  Poison.encode!(map)
+              end
 
     case State.get(pid, :compress) do
       _ ->
-	:erlang.binary_to_list(encoded)
+        :erlang.binary_to_list(encoded)
     end
   end
 
   def decode(raw, pid) do
     case State.get(pid, :encoding) do
       "etf" ->
-	:erlang.binary_to_term(raw, [:safe])
+        :erlang.binary_to_term(raw, [:safe])
       _ ->
-	Poison.decode!(raw)
+        Poison.decode!(raw)
     end
   end
 
@@ -109,31 +109,34 @@ defmodule Gateway.Websocket do
 
   def dispatch(pid, :ready) do
     ready = enclose(pid, "READY", %{
-	  v: 6,
-	  #user: get_user(state.user_id),
-	  user: %{
-	    id: 1,
-	    discriminator: "1111",
-	    username: "gay",
-	    avatar: "",
-	    bot: false,
-	    mfa_enabled: false,
-	    flags: 0,
-	    verified: true
-	  },
-	  private_channels: [],
-	  guilds: [],
-	  session_id: State.get(pid, :session_id),
-	  _trace: get_name()
-		    })
-    Logger.debug "Ready packet: #{inspect ready}"
+          v: 6,
+          #user: get_user(state.user_id),
+          user: %{
+            id: 1,
+            discriminator: "1111",
+            username: "gay",
+            avatar: "",
+            bot: false,
+            mfa_enabled: false,
+            flags: 0,
+            verified: true
+          },
+          private_channels: [],
+          guilds: [],
+          session_id: State.get(pid, :session_id),
+          _trace: get_name()
+                    })
+    Logger.debug fn ->
+      "Ready packet: #{inspect ready}"
+    end
+
     {:text, encode(ready, pid)}
   end
 
   def dispatch(pid, :resumed) do
     resumed = enclose(pid, "RESUMED", %{
-	  _trace: get_name()
-		      })
+          _trace: get_name()
+                      })
     {:reply, {:text, encode(resumed, pid)}, pid}
   end
   
@@ -153,8 +156,8 @@ defmodule Gateway.Websocket do
     hello = %{
       op: opcode(:hello),
       d: %{
-	heartbeat_interval: hb_interval(),
-	_trace: get_name()
+        heartbeat_interval: hb_interval(),
+        _trace: get_name()
       }
     }
     hb_timer()
@@ -164,7 +167,10 @@ defmodule Gateway.Websocket do
   # Handle client frames
   def websocket_handle({:text, content}, pid) do
     payload = decode(content, pid)
-    Logger.debug "Received payload: #{inspect payload}"
+    Logger.debug fn ->
+      "Received payload: #{inspect payload}"
+    end
+
     as_atom = opcode_atom(payload["op"])
     gateway_handle(as_atom, payload, pid)
   end
@@ -175,17 +181,26 @@ defmodule Gateway.Websocket do
 
   # handle incoming messages
 
+  @doc """
+  This function is usually called every
+  heartbeat_period seconds, this checks
+  if the client already heartbeated at that time,
+  if not, we close it, because they're
+  probably in a bad connection, and should resume
+  ASAP.
+  """
   def websocket_info([:heartbeat], pid) do
     Logger.info "Checking heartbeat state"
+
     case State.get(pid, :heartbeat) do
       true ->
-	Logger.info "all good"
-	hb_timer()
-	State.put(pid, :heartbeat, false)
-	{:ok, pid}
+        Logger.info "all good"
+        hb_timer()
+        State.put(pid, :heartbeat, false)
+        {:ok, pid}
       false ->
-	Logger.info "all bad"
-	{:reply, {:close, 4009, "Heartbeat timeout"}, pid}
+        Logger.info "all bad"
+        {:reply, {:close, 4009, "Heartbeat timeout"}, pid}
     end
   end
 
@@ -209,11 +224,11 @@ defmodule Gateway.Websocket do
   def gateway_handle(:heartbeat, %{"d" => seq}, pid) do
     case State.get(pid, :session_id) do
       nil ->
-	{:reply, {:close, 4003, "Not authenticated"}, pid}
+        {:reply, {:close, 4003, "Not authenticated"}, pid}
       _ ->
-	State.put(pid, :recv_seq, seq)
-	State.put(pid, :heartbeat, true)
-	{:reply, {:text, payload(:ack, pid)}, pid}
+        State.put(pid, :recv_seq, seq)
+        State.put(pid, :heartbeat, true)
+        {:reply, {:text, payload(:ack, pid)}, pid}
     end
   end
 
@@ -224,33 +239,40 @@ defmodule Gateway.Websocket do
   def gateway_handle(:identify, payload, pid) do
     case State.get(pid, :session_id) do
       nil ->
-	%{"token" => token,
-	  "properties" => prop,
-	  "compress" => compress,
-	  "large_threshold" => large,
-	  # "presence" => initial_presence
-	 } = payload["d"]
+        %{"token" => token,
+          "properties" => prop,
+          "compress" => compress,
+          "large_threshold" => large,
+          # "presence" => initial_presence
+         } = payload["d"]
 
-	shard = Map.get(payload, "shard", [0, 1])
+        shard = Map.get(payload, "shard", [0, 1])
 
-	Gateway.Ready.check_token(pid, token)
-	Gateway.Ready.check_shard(pid, shard)
-	Gateway.Ready.fill_session(pid, prop, compress, large)
+        # checking given user data
+        # and filling the state genserver
+        Gateway.Ready.check_token(pid, token)
+        Gateway.Ready.check_shard(pid, shard)
+        Gateway.Ready.fill_session(pid, prop, compress, large)
 
-	Presence.subscribe(pid, :all)
-	
-	presence = Map.get(payload, "presence", Presence.default_presence())
-	Presence.dispatch_users(pid, presence)
+        # subscribe to ALL available guilds
+        Presence.subscribe(pid, :all)
 
-	{:reply, dispatch(pid, :ready), pid}
+        # dispatch to the other users
+        presence = Map.get(payload, "presence", Presence.default_presence())
+        Presence.dispatch_users(pid, presence)
+
+        # good stuff
+        {:reply, dispatch(pid, :ready), pid}
       _ ->
-	{:reply, {:close, 4005, "Already authenticated"}, pid}
+        {:reply, {:close, 4005, "Already authenticated"}, pid}
     end
   end
 
   def gateway_handle(atomp, _payload, state) do
-    Logger.info "Handling nothing, #{inspect atomp}"
-    {:ok, state}
+    Logger.info fn ->
+      "Client gave an invalid OP code to us: #{inspect atomp}"
+    end
+    {:reply, {:close, 4001, "Invalid OP code"}, pid}
   end
 
   # TODO: insert rest

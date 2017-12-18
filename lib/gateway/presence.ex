@@ -1,4 +1,15 @@
 defmodule Presence do
+  @moduledoc """
+  Presence GenServer.
+
+  This module manages presence information
+  for all users currently connected and identified
+  to the websocket.
+
+  This also manages dispatching of the `PRESENCE_UPDATE`
+  event to other clients which are subscribed to the
+  guilds they share with other users.
+  """
   use GenServer
   require Logger
 
@@ -38,15 +49,17 @@ defmodule Presence do
 
   @spec all_guilds(pid(), :subscribe | :unsubscribe) :: nil
   @doc """
-  Send an sub/unsub message to all guilds
+  Send a sub/unsub message to all guilds
   a user is in.
   """
   defp all_guilds(state_pid, atom) do
     user_id = State.get(state_pid, :user_id)
 
-    Guild.get_guilds(user_id)
+    user_id
+    |> Guild.get_guilds()
     |> Enum.each(fn guild_id ->
-      # send to myself
+      # send the atom to myself for each guild
+      # the user is in
       GenServer.cast(:presence, {atom, user_id, guild_id})
     end)
   end
@@ -74,14 +87,14 @@ defmodule Presence do
       # and send the presence data to it
       # (via websocket)
       Enum.each(user_ids, fn user_id ->
-	case State.Registry.get(user_id) do
-	  {:ok, state_pid} ->
-	    State.send_ws(state_pid,
-	      {:text, Gateway.Websocket.encode(presence, state_pid)}
-	    )
-	  {:error, err} ->
-	    Logger.warn "Failed to dispatch to #{user_id}: #{err}"
-	end
+        case State.Registry.get(user_id) do
+          {:ok, state_pid} ->
+            State.send_ws(state_pid,
+                          {:text, Gateway.Websocket.encode(presence, state_pid)}
+            )
+          {:error, err} ->
+            Logger.warn "Failed to dispatch to #{user_id}: #{err}"
+        end
 
       end)
     end)

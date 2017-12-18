@@ -1,4 +1,7 @@
 defmodule State.Registry do
+  @moduledoc """
+  
+  """
   use GenServer
   require Logger
 
@@ -26,37 +29,54 @@ defmodule State.Registry do
   # TODO: add another key to user_id, guild_id
   # since we have sharding stuff
   def handle_call({:get, user_id}, _from, state) do
-    Logger.debug "getting state for #{user_id}"
+    Logger.debug fn ->
+      "getting state for #{user_id}"
+    end
     {:reply, Map.get(state, user_id), state}
   end
 
   def handle_call({:set, user_id, state_pid}, _from, state) do
-    Logger.debug "setting state for #{user_id} => #{inspect state_pid}"
+    Logger.debug fn ->
+      "setting state for #{user_id} => #{inspect state_pid}"
+    end
     {:reply, :ok, Map.put(state, user_id, state_pid)}
   end
 end
 
 defmodule State do
+  @moduledoc """
+  Represents a single state, for one user.
+
+  Used throughout the websocket connection for
+  data about the user like session IDs and tokens.
+
+  This also provides an interface for other modules
+  to get data from a single state.
+  """
   use GenServer
   require Logger
   
   defmodule StateStruct do
+    @moduledoc """
+    Defines a stucture of data to be hold to a state
+    object.
+    """
     defstruct [:session_id, :token, :user_id, :events,
-	       :recv_seq, :sent_seq, :heartbeat,
-	       :encoding, :compress, :shard_id, :sharded,
-	       :properties, :large, :parent]
+               :recv_seq, :sent_seq, :heartbeat,
+               :encoding, :compress, :shard_id, :sharded,
+               :properties, :large, :parent]
   end
   
   def start(parent) do
     Logger.info "Spinning up state GenServer"
     GenServer.start(__MODULE__, %StateStruct{parent: parent,
-					     events: [],
-					     recv_seq: 0,
-					     sent_seq: 0,
-					     heartbeat: false,
-					     encoding: "json",
-					     compress: false,
-					     sharded: false})
+                                             events: [],
+                                             recv_seq: 0,
+                                             sent_seq: 0,
+                                             heartbeat: false,
+                                             encoding: "json",
+                                             compress: false,
+                                             sharded: false})
   end
 
   # Client api
