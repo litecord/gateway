@@ -1,6 +1,10 @@
 defmodule Gateway.Bridge do
   @moduledoc """
   Implements the Litebridge protocol as a server.
+
+  Litebridge is a protocol running over websockets
+  that uses the gateway as a server and the rest
+  component as a client to share information between.
   """
 
   require Logger
@@ -12,14 +16,14 @@ defmodule Gateway.Bridge do
   end
   
   def hb_interval() do
-    20000
+    20_000
   end
 
   def encode(map, state) do
     encoded = case state.encoding do
-		"json" ->
-		  Poison.encode!(map)
-	      end
+                "json" ->
+                  Poison.encode!(map)
+              end
 
     if state.compress do
       ""
@@ -31,7 +35,7 @@ defmodule Gateway.Bridge do
   def decode(data, state) do
     case state.encoding do
       "json" ->
-	Poison.decode!(data)
+        Poison.decode!(data)
     end
   end
   
@@ -39,9 +43,9 @@ defmodule Gateway.Bridge do
     {peer_ip, peer_port} = :cowboy_req.peer(req)
     Logger.info "New client at #{inspect peer_ip}:#{inspect peer_port}"
     {:cowboy_websocket, req, %State{heartbeat: false,
-				    identify: false,
-				    encoding: "json",
-				    compress: false}}
+                                    identify: false,
+                                    encoding: "json",
+                                    compress: false}}
   end
 
   def terminate(reason, _req, _state) do
@@ -57,7 +61,7 @@ defmodule Gateway.Bridge do
   def websocket_init(state) do
     hb_timer()
     hello = encode(%{op: 0,
-		     hb_interval: hb_interval()}, state)
+                     hb_interval: hb_interval()}, state)
 
     Litebridge.start_link self()
     {:reply, {:text, hello}, state}
@@ -79,10 +83,10 @@ defmodule Gateway.Bridge do
   def websocket_info({:timeout, _ref, :req_heartbeat}, state) do
     case state.heartbeat do
       true ->
-	hb_timer()
-	{:ok, Map.put(state, :heartbeat, false)}
+        hb_timer()
+        {:ok, Map.put(state, :heartbeat, false)}
       false ->
-	{:reply, {:close, 4003, "Heartbeat timeout"}, state}
+        {:reply, {:close, 4003, "Heartbeat timeout"}, state}
     end
   end
 
@@ -113,10 +117,10 @@ defmodule Gateway.Bridge do
   def handle_payload(2, _payload, state) do
     case state.identify do
       true ->
-	hb_ack = encode(%{op: 3}, state)
-	{:reply, {:text, hb_ack}, Map.put(state, :heartbeat, true)}
+        hb_ack = encode(%{op: 3}, state)
+        {:reply, {:text, hb_ack}, Map.put(state, :heartbeat, true)}
       false ->
-	{:reply, {:close, 4002, "Not Authenticated"}, state}
+        {:reply, {:close, 4002, "Not Authenticated"}, state}
     end
   end
 
@@ -134,9 +138,9 @@ defmodule Gateway.Bridge do
       "a" => args} = decode(payload, state)
     #response = request_call(w, args)
     response_payload = encode(%{op: 5,
-				n: nonce,
-				#r: response
-			       }, state)
+                                n: nonce,
+                                #r: response
+                               }, state)
 
     {:reply, {:text, response_payload}, state}
   end
@@ -161,12 +165,27 @@ end
 
 
 defmodule Litebridge do
+  @moduledoc """
+  This module handles requests and responses to the other
+  side of litebridge.
+
+  Calls to this module *will* block, because of the blocking/waiting
+  nature of the websocket to process a request.
+  """
   use GenServer
 
   def start_link(parent) do
     GenServer.start_link(__MODULE__, parent, [name: :litebridge])
   end
 
+  @doc """
+  Request something from the client.
+
+  This call will block the process waiting for the message
+  from the client, with a timeout for a reply of 5 seconds.
+  """
+
+  @spec request(atom(), [any()]) :: any() | :timeout
   def request(r_type, r_args) do
     GenServer.call(:litebridge, {:request, r_type, r_args})
   end
@@ -180,7 +199,8 @@ defmodule Litebridge do
   def gen_nonce() do
     data = for _ <- 1..15, do: Enum.random(0..255)
 
-    :crypto.hash(:md5, data)
+    data
+    |> &(:crypto.hash(:md5, &1)).()
     |> Base.encode16(case: :lower)
     |> String.slice(0, 8)
   end
@@ -189,13 +209,26 @@ defmodule Litebridge do
     random_nonce = gen_nonce()
 
     send state.ws_pid, {:send, %{
-			   op: 4,
-			   w: r_type,
-			   a: r_args,
-			   n: random_nonce
-			}}
+                           op: 4,
+                           w: r_type,
+                           a: r_args,
+                           n: random_nonce
+                        }}
 
+    # Prepare ourselves the 5 second timeout
+    # from the client
     GenServer.cast(:litebridge, {:call_timeout, from})
+
+    # This makes the "blocking" part of request()
+    # since handle_call needs to reply something
+    # to the requesting process, replying nothing
+    # will make it wait for something.
+    #
+    # That something will be later received
+    # by the GenServer as {:response, nonce, data}
+    # and can be properly replied to the client
+    # at a later time, since the GenServer
+    # has a map from nonce's to PIDs.
     {:noreply, %{state | random_nonce => from}}
   end
 

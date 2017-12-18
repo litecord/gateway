@@ -1,4 +1,7 @@
 defmodule Gateway.DefaultHandler do
+  @moduledoc """
+  Just a default handler for /
+  """
   require Logger
 
   def init(req0, state) do

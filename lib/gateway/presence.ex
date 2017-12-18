@@ -65,6 +65,23 @@ defmodule Presence do
   end
 
   @doc """
+  Dispatch a presence object to a single user.
+  """
+  @spec dispatch_user(String.t) :: none()
+  def dispatch_user(presence, user_id) do
+    case State.Registry.get(user_id) do
+      {:ok, state_pid} ->
+        State.send_ws(state_pid,
+                      {:text, Gateway.Websocket.encode(presence, state_pid)}
+        )
+      {:error, err} ->
+        Logger.warn fn -> 
+          "Failed to dispatch to #{user_id}: #{err}"
+        end
+    end
+  end
+
+  @doc """
   Dispatch a presence object to all subscribed users
   that share mutual servers with another user
   """
@@ -87,15 +104,7 @@ defmodule Presence do
       # and send the presence data to it
       # (via websocket)
       Enum.each(user_ids, fn user_id ->
-        case State.Registry.get(user_id) do
-          {:ok, state_pid} ->
-            State.send_ws(state_pid,
-                          {:text, Gateway.Websocket.encode(presence, state_pid)}
-            )
-          {:error, err} ->
-            Logger.warn "Failed to dispatch to #{user_id}: #{err}"
-        end
-
+        dispatch_user(presence, user_id)
       end)
     end)
     

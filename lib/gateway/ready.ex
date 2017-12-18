@@ -21,10 +21,10 @@ defmodule Gateway.Ready do
     # Offload that to bridge
     case Litebridge.request("TOKEN_VALIDATE", [token]) do
       [false, err] ->
-	Logger.info "auth failed: #{err}"
-	State.send_ws(pid, {:error, 4001, "Authentication Failed"})
+        Logger.info "auth failed: #{err}"
+        State.send_ws(pid, {:error, 4001, "Authentication Failed"})
       true ->
-	State.put(pid, :user_id, user_id)
+        State.put(pid, :user_id, user_id)
     end
   end
 
@@ -52,7 +52,10 @@ defmodule Gateway.Ready do
 
     # SOLUTION: don't care about it
     random_data = for _ <- 1..30, do: Enum.random(0..255)
-    :crypto.hash(:md5, random_data) |> Base.encode16(case: :lower)
+
+    random_data
+    |> &(:crypto.hash(:md5, &1)).()
+    |> Base.encode16(case: :lower)
   end
  
   def fill_session(pid, properties, compress, large) do

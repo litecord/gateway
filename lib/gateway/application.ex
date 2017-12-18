@@ -1,4 +1,7 @@
 defmodule Gateway.Supervisor do
+  @moduledoc """
+  Entry point for the main application supervisor.
+  """
   use Supervisor
   require Logger
 
@@ -14,8 +17,8 @@ defmodule Gateway.Supervisor do
       Guild.Registry,
       State.Registry,
       %{
-	id: Gateway.Cowboy,
-	start: {Gateway.Cowboy, :start_link, []}
+        id: Gateway.Cowboy,
+        start: {Gateway.Cowboy, :start_link, []}
       },
     ], opts)
   end

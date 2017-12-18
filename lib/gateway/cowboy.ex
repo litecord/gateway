@@ -1,4 +1,7 @@
 defmodule Gateway.Cowboy do
+  @moduledoc """
+  Entry point for the webserver and websocket servers.
+  """
   require Logger
 
   def start_link() do
@@ -18,19 +21,19 @@ defmodule Gateway.Cowboy do
 
     {:ok, _} = :cowboy.start_tls(:litecord_http,
       [
-	{:port, 8443},
-	{:certfile, ""},
-	{:keyfile, ""}
+        {:port, 8443},
+        {:certfile, ""},
+        {:keyfile, ""}
       ], %{env: %{dispatch: dispatch_config}})
   end
   
   def build_dispatch_config do
     :cowboy_router.compile([
       {:_, [
-	  {"/", Gateway.DefaultHandler, []},
-	  {"/gw", Gateway.Websocket, %{}},
-	  {"/bridge", Gateway.Bridge, %{}}
-	]}
+          {"/", Gateway.DefaultHandler, []},
+          {"/gw", Gateway.Websocket, %{}},
+          {"/bridge", Gateway.Bridge, %{}}
+        ]}
     ])
   end
 end
