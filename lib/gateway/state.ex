@@ -1,6 +1,8 @@
 defmodule State.Registry do
   @moduledoc """
-  
+  State Registry
+
+  This relates a tuple of user and guild IDs to a state PID.
   """
   use GenServer
   require Logger
@@ -81,12 +83,12 @@ defmodule State do
 
   # Client api
   def get(pid, key) do
-    # Logger.info "state get: #{inspect pid} -> #{inspect key}"
+    Logger.info "state get: #{inspect pid} -> #{inspect key}"
     GenServer.call(pid, {:get, key})
   end
 
   def put(pid, key, value) do
-    # Logger.info "state put #{inspect pid} -> #{inspect key} : #{inspect value}"
+    Logger.info "state put #{inspect pid} -> #{inspect key} : #{inspect value}"
     GenServer.cast(pid, {:put, key, value})
   end
 
@@ -111,7 +113,11 @@ defmodule State do
   end
 
   def handle_cast(dispatch, state) do
+    Logger.debug fn ->
+      "dispatching to #{inspect state.parent}, #{inspect dispatch}"
+    end
     send state.parent, dispatch
+    {:noreply, state}
   end
 end
 

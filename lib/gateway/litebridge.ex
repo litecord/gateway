@@ -63,8 +63,8 @@ defmodule Gateway.Bridge do
     hello = encode(%{op: 0,
                      hb_interval: hb_interval()}, state)
 
-    Litebridge.start_link self()
-    {:reply, {:text, hello}, state}
+    {:ok, bridge_pid} = Litebridge.start_link self()
+    {:reply, {:text, hello}, Map.put(state, :bridge_pid, bridge_pid)}
   end
 
   # payload handlers
@@ -88,6 +88,10 @@ defmodule Gateway.Bridge do
       false ->
         {:reply, {:close, 4003, "Heartbeat timeout"}, state}
     end
+  end
+
+  def websocket_info({:send, packet}, state) do
+    {:reply, {:text, encode(packet, state)}, state}
   end
 
   # specific payload handlers
@@ -149,7 +153,15 @@ defmodule Gateway.Bridge do
   Handle OP 5 Response.
   """
   def handle_payload(5, payload, state) do
-    send state.bridge_pid, {:response, payload["n"], payload["d"]}
+    %{"n" => nonce,
+      "r" => response} = payload
+
+    Logger.debug fn ->
+      "Got a response for #{nonce}, #{inspect response}"
+    end
+
+    Litebridge.cast_anything({:response, nonce, response})
+    {:ok, state}
   end
   
   @doc """
@@ -173,6 +185,7 @@ defmodule Litebridge do
   nature of the websocket to process a request.
   """
   use GenServer
+  require Logger
 
   def start_link(parent) do
     GenServer.start_link(__MODULE__, parent, [name: :litebridge])
@@ -190,6 +203,13 @@ defmodule Litebridge do
     GenServer.call(:litebridge, {:request, r_type, r_args})
   end
 
+  def cast_anything(any) do
+    Logger.debug fn ->
+      "cast_anything: #{inspect any}"
+    end
+    GenServer.cast(:litebridge, any)
+  end
+
   # server callbacks
 
   def init(parent) do
@@ -199,8 +219,10 @@ defmodule Litebridge do
   def gen_nonce() do
     data = for _ <- 1..15, do: Enum.random(0..255)
 
+    cap = &(:crypto.hash(:md5, &1))
+
     data
-    |> &(:crypto.hash(:md5, &1)).()
+    |> cap.()
     |> Base.encode16(case: :lower)
     |> String.slice(0, 8)
   end
@@ -208,12 +230,16 @@ defmodule Litebridge do
   def handle_call({:request, r_type, r_args}, from, state) do
     random_nonce = gen_nonce()
 
-    send state.ws_pid, {:send, %{
+    send state.parent, {:send, %{
                            op: 4,
                            w: r_type,
                            a: r_args,
                            n: random_nonce
-                        }}
+    }}
+
+    Logger.debug fn ->
+      "MY FROM IS: #{inspect from}"
+    end
 
     # Prepare ourselves the 5 second timeout
     # from the client
@@ -229,18 +255,36 @@ defmodule Litebridge do
     # and can be properly replied to the client
     # at a later time, since the GenServer
     # has a map from nonce's to PIDs.
-    {:noreply, %{state | random_nonce => from}}
+    {:noreply, Map.put(state, random_nonce, from)}
   end
 
-  def handle_cast({:call_timeout, pid}, state) do
-    Process.sleep(5000)
-    GenServer.reply(pid, :timeout)
+  def handle_cast({:call_timeout, from}, state) do
+    Process.sleep(2000)
+    Logger.debug fn ->
+      "Sending a timeout reply to #{inspect from}"
+    end
+    GenServer.reply(from, :request_timeout)
     {:noreply, state}
   end
 
-  def handle_info({:response, nonce, data}, _from, state) do
-    pid = state[nonce]
-    GenServer.reply(pid, data)
-    {:noreply, Map.delete(state, nonce)}
+  def handle_cast({:response, nonce, data}, state) do
+    Logger.debug fn -> 
+      "Litebridge: recv #{nonce} #{inspect data}"
+    end
+
+    from = state[nonce]
+    case state[nonce] do
+      nil ->
+        Logger.debug fn ->
+          "got a response to unknown nonce"
+        end
+        {:noreply, state}
+      from ->
+        Logger.debug fn ->
+          "Litebridge: replying #{inspect data} to #{inspect from}"
+        end
+        GenServer.reply(from, data)
+        {:noreply, Map.delete(state, nonce)}
+    end
   end
 end

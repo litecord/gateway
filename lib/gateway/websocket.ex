@@ -151,6 +151,7 @@ defmodule Gateway.Websocket do
     Logger.info "Sending a hello packet"
 
     # Spin up a State GenServer
+    Logger.info "I AM #{inspect self()}"
     {:ok, pid} = State.start(self())
 
     hello = %{
@@ -204,12 +205,15 @@ defmodule Gateway.Websocket do
     end
   end
 
-  def websocket_info({:send, dispatch}, pid) do
+  def websocket_info2({:send, dispatch}, pid) do
+    Logger.debug fn ->
+      "websocket_info, got #{inspect dispatch} to send"
+    end
     {:reply, dispatch, pid}
   end
-  
+
   def websocket_info(data, state) do
-    Logger.info "w_info = #{inspect data}"
+    Logger.info "websocket_info, got #{inspect data}"
     {:ok, state}
   end
     
@@ -250,7 +254,11 @@ defmodule Gateway.Websocket do
 
         # checking given user data
         # and filling the state genserver
+        Logger.info "checking token"
         Gateway.Ready.check_token(pid, token)
+        Logger.info "token checked"
+
+        Logger.info "getting shard info"
         Gateway.Ready.check_shard(pid, shard)
         Gateway.Ready.fill_session(pid, prop, compress, large)
 
@@ -268,7 +276,46 @@ defmodule Gateway.Websocket do
     end
   end
 
-  def gateway_handle(atomp, _payload, state) do
+  def gateway_handle(:status_update, payload, pid) do
+    # Dispatch the new presence to Presence module
+    #
+    # TODO: parse the game object
+    # and extract a presence struct out of it
+    game = Map.get(payload, "game")
+    Presence.dispatch_users(pid, game)
+
+    {:ok, pid}
+  end
+
+  def gateway_handle(:resume, payload, pid) do
+    # Catch the state genserver which manages
+    # the given session ID.
+    %{
+      "token" => token,
+      "session_id" => session_id,
+      "seq" => seq,
+    } = payload
+
+    pid = State.Registry.get(session_id)
+    case pid do
+      nil ->
+        # Should we just invalidate session?
+        # yes we should.
+        # TODO: invalidate session routines
+        {:reply, {:text, "{}"}, pid}
+      any -> 
+        # We have a proper PID, lets resume it.
+        # TODO: check token
+
+        {:reply, {:text, "{}"}, pid}
+    end
+  end
+
+  def gateway_handle(:req_guild_members, _payload, pid) do
+    # Request it to a GenGuild
+  end
+
+  def gateway_handle(atomp, _payload, pid) do
     Logger.info fn ->
       "Client gave an invalid OP code to us: #{inspect atomp}"
     end

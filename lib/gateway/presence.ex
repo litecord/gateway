@@ -67,7 +67,7 @@ defmodule Presence do
   @doc """
   Dispatch a presence object to a single user.
   """
-  @spec dispatch_user(String.t) :: none()
+  @spec dispatch_user(Map.t, String.t) :: none()
   def dispatch_user(presence, user_id) do
     case State.Registry.get(user_id) do
       {:ok, state_pid} ->

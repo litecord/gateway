@@ -19,12 +19,27 @@ defmodule Gateway.Ready do
     Gateway.Repo.one(query)
 
     # Offload that to bridge
-    case Litebridge.request("TOKEN_VALIDATE", [token]) do
+    res = Litebridge.request("TOKEN_VALIDATE", [token])
+    Logger.debug fn -> 
+      "res from litebridge request: #{inspect res}"
+    end
+    case res do
+      :request_timeout ->
+        Logger.warn fn ->
+          "Request timeout"
+        end
+        State.send_ws(pid, {:close, 4001, "Authentication failed (timeout)"})
+        false
       [false, err] ->
-        Logger.info "auth failed: #{err}"
-        State.send_ws(pid, {:error, 4001, "Authentication Failed"})
+        Logger.info fn ->
+          "auth failed: #{err}"
+        end
+        State.send_ws(pid, {:close, 4001, "Authentication Failed"})
+        false
       true ->
+        Logger.info "IDENTIFIED"
         State.put(pid, :user_id, user_id)
+        true
     end
   end
 
@@ -47,14 +62,15 @@ defmodule Gateway.Ready do
   end
 
   def generate_session_id() do
-    # TODO: how to make session IDs not collide
+    # how to make session IDs not collide
     # with one another?
-
     # SOLUTION: don't care about it
+
     random_data = for _ <- 1..30, do: Enum.random(0..255)
 
+    cap = &(:crypto.hash(:md5, &1))
     random_data
-    |> &(:crypto.hash(:md5, &1)).()
+    |> cap.()
     |> Base.encode16(case: :lower)
   end
  
