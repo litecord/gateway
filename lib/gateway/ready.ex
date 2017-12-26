@@ -5,8 +5,28 @@ defmodule Gateway.Ready do
   websocket connection
   """
   require Logger
+  alias Gateway.Repo
   import Ecto.Query, only: [from: 2]
 
+  @doc """
+  Query user information.
+  """
+  @spec user_info(String.t) :: Ecto.Sctruct.t() | nil
+  def user_info(user_id) do
+    query = from u in Gateway.User,
+      where: u.id == ^user_id
+
+    Repo.one(query)
+  end
+
+  @doc """
+  Check if a token is valid, and if it
+  is, set the state's user_id field to it.
+
+  if not, this will close the websocket connection
+  with authentication failed reason.
+  """
+  @spec check_token(pid(), String.t) :: boolean()
   def check_token(pid, token) do
     [encoded_uid, _, _] = String.split token, "."
     {:ok, user_id} = encoded_uid |> Base.url_decode64

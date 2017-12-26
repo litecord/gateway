@@ -3,6 +3,7 @@ defmodule Gateway.Websocket do
   Main websocket handler.
   """
 
+  alias Gateway.Ready
   require Logger
   @behaviour :cowboy_websocket
 
@@ -35,6 +36,10 @@ defmodule Gateway.Websocket do
 
   defp get_name() do
     ["litecord-gateway-prd-0"]
+  end
+
+  defp get_name(:ready) do
+    ["litecord-ready-prd-0"]
   end
 
   def opcode(op) do
@@ -108,29 +113,29 @@ defmodule Gateway.Websocket do
   end
 
   def dispatch(pid, :ready) do
-    ready = enclose(pid, "READY", %{
-          v: 6,
-          #user: get_user(state.user_id),
-          user: %{
-            id: 1,
-            discriminator: "1111",
-            username: "gay",
-            avatar: "",
-            bot: false,
-            mfa_enabled: false,
-            flags: 0,
-            verified: true
-          },
-          private_channels: [],
-          guilds: [],
-          session_id: State.get(pid, :session_id),
-          _trace: get_name()
-                    })
-    Logger.debug fn ->
-      "Ready packet: #{inspect ready}"
-    end
+    uid = State.get(pid, :user_id)
+    case uid do
+      nil ->
+        # not auth
+        {:close, 4001, "Not Authenticated for READY"}
+      user_id ->
+        user_data = Ready.user_info(user_id)
+                    |> Map.from_struct
+                    |> Map.delete(:__meta__)
+        ready = enclose(pid, "READY", %{
+              v: 6,
+              user: user_data,
+              private_channels: [],
+              guilds: [],
+              session_id: State.get(pid, :session_id),
+              _trace: get_name(:ready),
+        })
+        Logger.debug fn ->
+          "Ready packet: #{inspect ready}"
+        end
 
-    {:text, encode(ready, pid)}
+        {:text, encode(ready, pid)}
+    end
   end
 
   def dispatch(pid, :resumed) do
@@ -291,9 +296,11 @@ defmodule Gateway.Websocket do
     # Catch the state genserver which manages
     # the given session ID.
     %{
-      "token" => token,
-      "session_id" => session_id,
-      "seq" => seq,
+      "d" => %{
+        "token" => token,
+        "session_id" => session_id,
+        "seq" => seq,
+      }
     } = payload
 
     pid = State.Registry.get(session_id)
@@ -302,12 +309,12 @@ defmodule Gateway.Websocket do
         # Should we just invalidate session?
         # yes we should.
         # TODO: invalidate session routines
-        {:reply, {:text, "{}"}, pid}
+        {:reply, {:text, payload(:invalid_session, pid)}, pid}
       any -> 
         # We have a proper PID, lets resume it.
         # TODO: check token
 
-        {:reply, {:text, "{}"}, pid}
+        {:reply, {:text, dispatch(pid, :resumed)}, pid}
     end
   end
 

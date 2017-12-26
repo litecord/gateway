@@ -160,7 +160,7 @@ defmodule Gateway.Bridge do
       "Got a response for #{nonce}, #{inspect response}"
     end
 
-    Litebridge.cast_anything({:response, nonce, response})
+    Litebridge.process_response(nonce, response)
     {:ok, state}
   end
   
@@ -203,11 +203,9 @@ defmodule Litebridge do
     GenServer.call(:litebridge, {:request, r_type, r_args})
   end
 
-  def cast_anything(any) do
-    Logger.debug fn ->
-      "cast_anything: #{inspect any}"
-    end
-    GenServer.cast(:litebridge, any)
+  def process_response(nonce, response) do
+    Logger.info "[litebridge client] n=#{nonce} r=#{response}"
+    GenServer.cast(:litebridge, {:response, nonce, response})
   end
 
   # server callbacks
@@ -243,7 +241,7 @@ defmodule Litebridge do
 
     # Prepare ourselves the 5 second timeout
     # from the client
-    GenServer.cast(:litebridge, {:call_timeout, from})
+    Process.send_after(self(), {:call_timeout, from}, 4000)
 
     # This makes the "blocking" part of request()
     # since handle_call needs to reply something
@@ -258,11 +256,11 @@ defmodule Litebridge do
     {:noreply, Map.put(state, random_nonce, from)}
   end
 
-  def handle_cast({:call_timeout, from}, state) do
-    Process.sleep(2000)
+  def handle_info({:call_timeout, from}, state) do
     Logger.debug fn ->
       "Sending a timeout reply to #{inspect from}"
     end
+
     GenServer.reply(from, :request_timeout)
     {:noreply, state}
   end
@@ -283,6 +281,7 @@ defmodule Litebridge do
         Logger.debug fn ->
           "Litebridge: replying #{inspect data} to #{inspect from}"
         end
+
         GenServer.reply(from, data)
         {:noreply, Map.delete(state, nonce)}
     end

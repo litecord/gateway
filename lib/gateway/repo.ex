@@ -5,8 +5,11 @@ end
 defmodule Gateway.User do
   use Ecto.Schema
 
+  # @primary_key {:id, :string}
+  @primary_key false
+
   schema "users" do
-    # field :id, :string
+    field :id, :string
     field :username, :string
     field :discriminator, :string
     field :avatar, :string

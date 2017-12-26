@@ -102,8 +102,9 @@ defmodule State do
   end
 
   def handle_call({:get, key}, _from, state) do
-    Logger.info "HANDLING state get: #{inspect key}"
-    {:reply, Map.get(state, key), state}
+    res = Map.get(state, key)
+    Logger.info "HANDLING state get: #{inspect key} : #{inspect res}"
+    {:reply, res, state}
   end
 
   def handle_cast({:put, key, value}, state) do
