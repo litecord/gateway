@@ -23,6 +23,11 @@ defmodule State.Registry do
     GenServer.call(__MODULE__, {:set, user_id, state_pid})
   end
 
+  @spec delete(pid()) :: :ok
+  def delete(state_pid) do
+    GenServer.call(__MODULE__, {:delete, state_pid})
+  end
+
   ## server callbacks
   def init(:ok) do
     {:ok, %{}}
@@ -43,6 +48,14 @@ defmodule State.Registry do
     end
     {:reply, :ok, Map.put(state, user_id, state_pid)}
   end
+
+  def handle_call({:delete, state_pid}, _from, state) do
+    user_id = State.get(state_pid, :user_id)
+    Logger.debug fn ->
+      "deleting state for uid #{user_id}"
+    end
+    {:reply, :ok, Map.delete(state, user_id)}
+  end
 end
 
 defmodule State do
@@ -55,6 +68,7 @@ defmodule State do
   This also provides an interface for other modules
   to get data from a single state.
   """
+
   use GenServer
   require Logger
   

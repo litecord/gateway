@@ -112,6 +112,18 @@ defmodule Gateway.Websocket do
     |> encode(pid)
   end
 
+  def payload(:invalid_session, pid, resumable) do
+    case resumable do
+      false ->
+        State.Registry.delete(pid)
+    end
+    %{
+      op: opcode(:invalid_session),
+      d: resumable,
+    }
+    |> encode(pid)
+  end
+
   def dispatch(pid, :ready) do
     uid = State.get(pid, :user_id)
     case uid do
@@ -308,13 +320,15 @@ defmodule Gateway.Websocket do
       nil ->
         # Should we just invalidate session?
         # yes we should.
-        # TODO: invalidate session routines
         {:reply, {:text, payload(:invalid_session, pid)}, pid}
       any -> 
         # We have a proper PID, lets resume it.
-        # TODO: check token
-
-        {:reply, {:text, dispatch(pid, :resumed)}, pid}
+        case Gateway.Ready.check_token(token) do
+          true ->
+            {:reply, {:text, dispatch(pid, :resumed)}, pid}
+          false ->
+            {:noreply, pid}
+        end
     end
   end
 
