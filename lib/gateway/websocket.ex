@@ -15,8 +15,6 @@ defmodule Gateway.Websocket do
   end
 
   def hb_timer() do
-    Logger.info "start timer"
- 
     # We add 1 second more because the world is bad
     :erlang.send_after(hb_interval() + 1000, self(), [:heartbeat])
   end
@@ -24,9 +22,7 @@ defmodule Gateway.Websocket do
   def init(req, _state) do
     Logger.info "New client: #{inspect req}"
 
-    # TODO: parse querystring here
-
-    {:cowboy_websocket, req, nil}
+    {:cowboy_websocket, req, req}
   end
 
   def terminate(reason, _request, state) do
@@ -131,7 +127,8 @@ defmodule Gateway.Websocket do
         # not auth
         {:close, 4001, "Not Authenticated for READY"}
       user_id ->
-        user_data = Ready.user_info(user_id)
+        user_info = Ready.user_info(user_id)
+        user_data = user_info
                     |> Map.from_struct
                     |> Map.delete(:__meta__)
         ready = enclose(pid, "READY", %{
@@ -164,22 +161,32 @@ defmodule Gateway.Websocket do
   # The logic is that the client
   # will send an IDENTIFY packet soon
   # after receiving this HELLO.
-  def websocket_init(_pid) do
+  def websocket_init(req) do
     Logger.info "Sending a hello packet"
 
-    # Spin up a State GenServer
-    Logger.info "I AM #{inspect self()}"
-    {:ok, pid} = State.start(self())
+    %{
+      v: gw_version,
+      encoding: gw_encoding,
+    } = :cowboy_req.match_qs([:v, :encoding], req)
 
-    hello = %{
-      op: opcode(:hello),
-      d: %{
-        heartbeat_interval: hb_interval(),
-        _trace: get_name()
+    # Spin up a State GenServer
+    Logger.info "v=#{gw_version}, encoding=#{gw_encoding}"
+    if gw_version == "6" or gw_version == "7" do
+      Logger.info "I AM #{inspect self()}"
+      {:ok, pid} = State.start(self(), gw_encoding)
+
+      hello = %{
+        op: opcode(:hello),
+        d: %{
+          heartbeat_interval: hb_interval(),
+          _trace: get_name()
+        }
       }
-    }
-    hb_timer()
-    {:reply, {:text, encode(hello, pid)}, pid}
+      hb_timer()
+      {:reply, {:text, encode(hello, pid)}, pid}
+    else
+      {:reply, {:close, 4000, "Gateway version not supported"}, nil}
+    end
   end
   
   # Handle client frames
@@ -212,12 +219,11 @@ defmodule Gateway.Websocket do
 
     case State.get(pid, :heartbeat) do
       true ->
-        Logger.info "all good"
         hb_timer()
         State.put(pid, :heartbeat, false)
         {:ok, pid}
       false ->
-        Logger.info "all bad"
+        Logger.info "heartbeat timeout, closing"
         {:reply, {:close, 4009, "Heartbeat timeout"}, pid}
     end
   end

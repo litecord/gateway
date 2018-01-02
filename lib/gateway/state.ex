@@ -83,26 +83,26 @@ defmodule State do
                :properties, :large, :parent]
   end
   
-  def start(parent) do
+  def start(parent, encoding) do
     Logger.info "Spinning up state GenServer"
     GenServer.start(__MODULE__, %StateStruct{parent: parent,
                                              events: [],
                                              recv_seq: 0,
                                              sent_seq: 0,
                                              heartbeat: false,
-                                             encoding: "json",
+                                             encoding: encoding,
                                              compress: false,
                                              sharded: false})
   end
 
   # Client api
   def get(pid, key) do
-    Logger.info "state get: #{inspect pid} -> #{inspect key}"
+    # Logger.info "state get: #{inspect pid} -> #{inspect key}"
     GenServer.call(pid, {:get, key})
   end
 
   def put(pid, key, value) do
-    Logger.info "state put #{inspect pid} -> #{inspect key} : #{inspect value}"
+    # Logger.info "state put #{inspect pid} -> #{inspect key} : #{inspect value}"
     GenServer.cast(pid, {:put, key, value})
   end
 

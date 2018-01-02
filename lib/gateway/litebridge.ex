@@ -70,7 +70,6 @@ defmodule Gateway.Bridge do
   # payload handlers
   def websocket_handle({:text, frame}, state) do
     payload = decode(frame, state)
-    IO.puts "recv payload: #{inspect payload}"
     %{"op" => opcode} = payload
     handle_payload(opcode, payload, state)
   end
