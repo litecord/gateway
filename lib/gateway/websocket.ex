@@ -131,18 +131,25 @@ defmodule Gateway.Websocket do
         user_data = user_info
                     |> Map.from_struct
                     |> Map.delete(:__meta__)
+
+        # we get a list of guilds with get_guilds
+        # then proceed to get a fuckton of data with
+        # get_guild_data
+        guild_ids = Guild.get_guilds(uid)
+        guilds = guild_ids |> Guild.get_guild_data
+
         ready = enclose(pid, "READY", %{
               v: 6,
               user: user_data,
               private_channels: [],
-              guilds: [],
+              guilds: guilds,
               session_id: State.get(pid, :session_id),
               _trace: get_name(:ready),
         })
+
         Logger.debug fn ->
           "Ready packet: #{inspect ready}"
         end
-
         {:text, encode(ready, pid)}
     end
   end
@@ -151,9 +158,18 @@ defmodule Gateway.Websocket do
     resumed = enclose(pid, "RESUMED", %{
           _trace: get_name()
                       })
-    {:reply, {:text, encode(resumed, pid)}, pid}
+    {:text, encode(resumed, pid)}
   end
-  
+
+  @spec dispatch(pid(), atom(), pid()) :: {:text, String.t}
+  def dispatch(pid, :guild_sync, guild_pid) do
+    # idea is call gen guild, request member and presence
+    # information, reply with {:text, String.t} back
+    #
+    # then we are happy!
+    {:text, "{}"}
+  end
+
   def dispatch(_state, _) do
     {:error, 4000, "Unkown atom"}
   end
@@ -331,15 +347,41 @@ defmodule Gateway.Websocket do
         # We have a proper PID, lets resume it.
         case Gateway.Ready.check_token(token) do
           true ->
-            {:reply, {:text, dispatch(pid, :resumed)}, pid}
+            {:reply, dispatch(pid, :resumed), pid}
           false ->
             {:noreply, pid}
         end
     end
   end
 
-  def gateway_handle(:req_guild_members, _payload, pid) do
-    # Request it to a GenGuild
+  def gateway_handle(:req_guild_members, %{
+    "guild_id" => guild_id, "query" => query, "limit" => limit,
+  }, pid) do
+    # Idea is we get the GenServer for what we want,
+    # from there we pass the query and the limit
+    guild_pid = Guild.Registry.get(guild_id)
+
+    # the GenGuild will send messages back
+    # with the chunks we need ;)
+    GenGuild.get_members(guild_pid, self())
+    {:noreply, pid}
+  end
+
+  def gateway_handle(:guild_sync, guild_ids, pid) do
+    uid = State.get(pid, :user_id)
+
+    Enum.each(guild_ids, fn guild_id ->
+      guild_pid = Guild.Registry.get(guild_id)
+
+      # TODO: checks if the user is in the guild
+      # before subscribing, maybe delegate
+      # the job to the actual GenGuild.subcribe?
+      GenGuild.subscribe(guild_pid, uid)
+
+      send self(), {:send, dispatch(pid, :guild_sync, guild_pid)}
+    end)
+
+    {:noreply, pid}
   end
 
   def gateway_handle(atomp, _payload, pid) do
@@ -348,6 +390,4 @@ defmodule Gateway.Websocket do
     end
     {:reply, {:close, 4001, "Invalid OP code"}, pid}
   end
-
-  # TODO: insert rest
 end

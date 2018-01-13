@@ -33,7 +33,7 @@ defmodule Guild.Registry do
   end
 
   ## client api
-  @spec get(integer()) :: GenGuild
+  @spec get(String.t) :: GenGuild
   def get(guild_id) do
     GenServer.call(__MODULE__, {:get, guild_id})
   end
@@ -73,10 +73,12 @@ defmodule GenGuild do
   end
 
   # client api
+  @spec subscribe(pid(), String.t) :: :ok
   def subscribe(pid, uid) do
     GenServer.cast(pid, {:sub, uid})
   end
 
+  @spec unsubscribe(pid(), String.t) :: :ok
   def unsubscribe(pid, uid) do
     GenServer.cast(pid, {:unsub, uid})
   end
