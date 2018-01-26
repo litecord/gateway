@@ -16,6 +16,7 @@ defmodule Gateway.Supervisor do
       Gateway.Repo,
       Guild.Registry,
       State.Registry,
+      Litebridge,
       %{
         id: Gateway.Cowboy,
         start: {Gateway.Cowboy, :start_link, []}

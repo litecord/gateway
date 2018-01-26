@@ -135,14 +135,14 @@ defmodule Gateway.Websocket do
         # we get a list of guilds with get_guilds
         # then proceed to get a fuckton of data with
         # get_guild_data
-        guild_ids = Guild.get_guilds(uid)
-        guilds = guild_ids |> Guild.get_guild_data
+        #guild_ids = Guild.get_guilds(uid)
+        #guilds = guild_ids |> Guild.get_guild_data
 
         ready = enclose(pid, "READY", %{
               v: 6,
               user: user_data,
               private_channels: [],
-              guilds: guilds,
+              guilds: [],
               session_id: State.get(pid, :session_id),
               _trace: get_name(:ready),
         })
@@ -150,6 +150,7 @@ defmodule Gateway.Websocket do
         Logger.debug fn ->
           "Ready packet: #{inspect ready}"
         end
+
         {:text, encode(ready, pid)}
     end
   end
@@ -286,7 +287,6 @@ defmodule Gateway.Websocket do
           "properties" => prop,
           "compress" => compress,
           "large_threshold" => large,
-          # "presence" => initial_presence
          } = payload["d"]
 
         shard = Map.get(payload, "shard", [0, 1])
@@ -302,11 +302,11 @@ defmodule Gateway.Websocket do
         Gateway.Ready.fill_session(pid, prop, compress, large)
 
         # subscribe to ALL available guilds
-        Presence.subscribe(pid, :all)
+        # Presence.subscribe(pid, :all)
 
         # dispatch to the other users
         presence = Map.get(payload, "presence", Presence.default_presence())
-        Presence.dispatch_users(pid, presence)
+        # Presence.dispatch_users(pid, presence)
 
         # good stuff
         {:reply, dispatch(pid, :ready), pid}

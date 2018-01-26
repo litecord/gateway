@@ -63,6 +63,8 @@ defmodule GenGuild do
 
   This holds generic information about a specific guild,
   like which users are subscribed to the guild's events.
+
+  The general idea is that a GenGuild is implementing pub/sub.
   """
   use GenServer
   require Logger
@@ -82,13 +84,22 @@ defmodule GenGuild do
   def unsubscribe(pid, uid) do
     GenServer.cast(pid, {:unsub, uid})
   end
-
+  
   @doc """
   Get all users subscribed to a guild's events
   """
   @spec get_subs(pid()) :: [integer()]
   def get_subs(pid) do
     GenServer.call(pid, {:get_subs})
+  end
+
+  @doc """
+  Dispatch messages to the users subscribed
+  to this guild.
+  """
+  @spec dispatch(pid(), any()) :: :ok
+  def dispatch(pid, message) do
+    GenServer.cast(pid, {:dispatch, message})
   end
 
   ## server callbacks
@@ -105,6 +116,9 @@ defmodule GenGuild do
   end
 
   ## casts
+  @doc """
+  Subscribe a user to the guild.
+  """
   def handle_cast({:sub, user_id}, state) do
     uids = state.subscribed
     {:noreply, %{state |
@@ -113,12 +127,29 @@ defmodule GenGuild do
     }
   end
 
+  @doc """
+  Unsubscribe a user from the guild.
+  """
   def handle_cast({:unsub, user_id}, state) do
     uids = state.subscribed
     {:noreply, %{state |
                  subscribed: List.delete(uids, user_id)
                 }
     }
+  end
+
+  def handle_cast({:dispatch, message}, state) do
+    subscribed = state[:subscribed]
+    Enum.each(subscribed, fn user_id ->
+      u = State.Registry.get(state[:id], user_id)
+      case u do
+        nil ->
+          nil
+        any -> 
+          send any, message
+      end
+    end)
+    {:noreply, state}
   end
 
 end

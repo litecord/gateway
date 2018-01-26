@@ -34,12 +34,12 @@ defmodule Presence do
     GenServer.cast(:presence, {:dispatch_users, state_pid, presence})
   end
 
-  def subscribe(state_pid, guild_id) do
-    GenServer.cast(:presence, {:sub, state_pid, guild_id})
+  def subscribe(state_pid, user_id, guild_id) do
+    GenServer.cast(:presence, {:sub, user_id, guild_id})
   end
 
-  def unsubscribe(state_pid, guild_id) do
-    GenServer.cast(:presence, {:unsub, state_pid, guild_id})
+  def unsubscribe(state_pid, user_id, guild_id) do
+    GenServer.cast(:presence, {:unsub, user_id, guild_id})
   end
 
   # Server callbacks
@@ -67,7 +67,7 @@ defmodule Presence do
   @doc """
   Dispatch a presence object to a single user.
   """
-  @spec dispatch_user(Map.t, String.t) :: none()
+  @spec dispatch_user(Map.t, String.t) :: nil
   def dispatch_user(presence, user_id) do
     case State.Registry.get(user_id) do
       {:ok, state_pid} ->

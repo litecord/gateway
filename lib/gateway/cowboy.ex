@@ -9,7 +9,7 @@ defmodule Gateway.Cowboy do
 
     Logger.info "Starting cowboy at :8080"
     {:ok, _} = :cowboy.start_clear(:http,
-      [{:port, 8080}],
+      [{:port, 8081}],
       %{env: %{dispatch: dispatch_config}}
     )
   end

@@ -41,7 +41,7 @@ defmodule Gateway.Bridge do
   
   def init(req, _state) do
     {peer_ip, peer_port} = :cowboy_req.peer(req)
-    Logger.info "New client at #{inspect peer_ip}:#{inspect peer_port}"
+    Logger.info "litebridge: new #{inspect peer_ip}:#{inspect peer_port}"
     {:cowboy_websocket, req, %State{heartbeat: false,
                                     identify: false,
                                     encoding: "json",
@@ -63,8 +63,8 @@ defmodule Gateway.Bridge do
     hello = encode(%{op: 0,
                      hb_interval: hb_interval()}, state)
 
-    {:ok, bridge_pid} = Litebridge.start_link self()
-    {:reply, {:text, hello}, Map.put(state, :bridge_pid, bridge_pid)}
+    Litebridge.register self()
+    {:reply, {:text, hello}, state}
   end
 
   # payload handlers
@@ -134,12 +134,10 @@ defmodule Gateway.Bridge do
   Sends OP 5 Response.
   """
   def handle_payload(4, payload, state) do
-    #%{"" => nonce,
-    #  "" => q} = decode(payload, state)
     %{"n" => nonce,
       "w" => request,
       "a" => args} = decode(payload, state)
-    #response = request_call(w, args)
+
     response_payload = encode(%{op: 5,
                                 n: nonce,
                                 #r: response
@@ -186,8 +184,16 @@ defmodule Litebridge do
   use GenServer
   require Logger
 
-  def start_link(parent) do
-    GenServer.start_link(__MODULE__, parent, [name: :litebridge])
+  def start_link(args) do
+    GenServer.start_link(__MODULE__, args, [name: :litebridge])
+  end
+
+  @doc """
+  Set a litebridge websocket process
+  as the current websocket process.
+  """
+  def register(pid) do
+    GenServer.cast(:litebridge, {:set_ws, pid})
   end
 
   @doc """
@@ -196,7 +202,6 @@ defmodule Litebridge do
   This call will block the process waiting for the message
   from the client, with a timeout for a reply of 5 seconds.
   """
-
   @spec request(atom(), [any()]) :: any() | :timeout
   def request(r_type, r_args) do
     GenServer.call(:litebridge, {:request, r_type, r_args})
@@ -210,7 +215,11 @@ defmodule Litebridge do
   # server callbacks
 
   def init(parent) do
-    {:ok, %{parent: parent}}
+    {:ok, %{}}
+  end
+
+  def handle_cast({:set_ws, pid}, state) do
+    {:noreply, Map.put(state, :parent, pid)}
   end
 
   def gen_nonce() do
@@ -227,11 +236,11 @@ defmodule Litebridge do
   def handle_call({:request, r_type, r_args}, from, state) do
     random_nonce = gen_nonce()
 
-    send state.parent, {:send, %{
-                           op: 4,
-                           w: r_type,
-                           a: r_args,
-                           n: random_nonce
+    send state[:parent], {:send, %{
+      op: 4,
+      w: r_type,
+      a: r_args,
+      n: random_nonce
     }}
 
     Logger.debug fn ->
