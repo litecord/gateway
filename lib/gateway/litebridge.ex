@@ -54,8 +54,10 @@ defmodule Gateway.Bridge do
   end
 
   def hb_timer() do
-    hb_interval()
-    |> :erlang.start_timer(self(), :req_heartbeat)
+    interv = hb_interval()
+
+    # The world is really bad.
+    :erlang.start_timer(interv + 1000, self(), :req_heartbeat)
   end
   
   def websocket_init(state) do
