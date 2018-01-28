@@ -50,6 +50,7 @@ defmodule Gateway.Bridge do
 
   def terminate(reason, _req, _state) do
     Logger.info "Terminated from #{inspect reason}"
+    Litebridge.remove self()
     :ok
   end
 
@@ -191,11 +192,19 @@ defmodule Litebridge do
   end
 
   @doc """
-  Set a litebridge websocket process
-  as the current websocket process.
+  Add a litebridge websocket process
+  as one of the process we can send requests to.
   """
   def register(pid) do
-    GenServer.cast(:litebridge, {:set_ws, pid})
+    GenServer.cast(:litebridge, {:add_ws, pid})
+  end
+
+  @doc """
+  Remove a litebridge websocket process pid
+  from the client list
+  """
+  def remove(pid) do
+    GenServer.cast(:litebridge, {:remove_ws, pid})
   end
 
   @doc """
@@ -209,22 +218,18 @@ defmodule Litebridge do
     GenServer.call(:litebridge, {:request, r_type, r_args})
   end
 
+  @doc """
+  Process a received response from one of the websockets.
+  """
   def process_response(nonce, response) do
     Logger.info "[litebridge client] n=#{nonce} r=#{response}"
     GenServer.cast(:litebridge, {:response, nonce, response})
   end
 
-  # server callbacks
-
-  def init(parent) do
-    {:ok, %{}}
-  end
-
-  def handle_cast({:set_ws, pid}, state) do
-    {:noreply, Map.put(state, :parent, pid)}
-  end
-
-  def gen_nonce() do
+  @doc """
+  Generate a random nonce for our requests.
+  """
+  defp gen_nonce() do
     data = for _ <- 1..15, do: Enum.random(0..255)
 
     cap = &(:crypto.hash(:md5, &1))
@@ -235,10 +240,36 @@ defmodule Litebridge do
     |> String.slice(0, 8)
   end
 
+  # server callbacks
+
+  def init(args) do
+    {:ok, %{
+      clients: []
+    }}
+  end
+
+  def handle_cast({:add_ws, pid}, state) do
+    Logger.debug fn ->
+      "Adding #{inspect pid} as litebridge"
+    end
+    new_clients = [pid | state[:clients]]
+    {:noreply, Map.put(state, :clients, new_clients)}
+  end
+
+  def handle_cast({:remove_ws, pid}, state) do
+    Logger.debug fn ->
+      "Removing #{inspect pid} as litebridge"
+    end
+    new_clients = List.delete(state[:clients], pid)
+    {:noreply, Map.put(state, :clients, new_clients)}
+  end
+
   def handle_call({:request, r_type, r_args}, from, state) do
     random_nonce = gen_nonce()
 
-    send state[:parent], {:send, %{
+    # choose a random client to handle our request
+    ws_pid = Enum.random(state[:clients])
+    send ws_pid, {:send, %{
       op: 4,
       w: r_type,
       a: r_args,
@@ -251,7 +282,7 @@ defmodule Litebridge do
 
     # Prepare ourselves the 5 second timeout
     # from the client
-    Process.send_after(self(), {:call_timeout, from}, 4000)
+    Process.send_after(self(), {:call_timeout, from}, 5000)
 
     # This makes the "blocking" part of request()
     # since handle_call needs to reply something

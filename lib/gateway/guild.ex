@@ -97,7 +97,7 @@ defmodule GenGuild do
   Dispatch messages to the users subscribed
   to this guild.
   """
-  @spec dispatch(pid(), any()) :: :ok
+  @spec dispatch(pid(), Map.t) :: :ok
   def dispatch(pid, message) do
     GenServer.cast(pid, {:dispatch, message})
   end
@@ -141,13 +141,7 @@ defmodule GenGuild do
   def handle_cast({:dispatch, message}, state) do
     subscribed = state[:subscribed]
     Enum.each(subscribed, fn user_id ->
-      u = State.Registry.get(state[:id], user_id)
-      case u do
-        nil ->
-          nil
-        any -> 
-          send any, message
-      end
+      Presence.dispatch_user(message, message)
     end)
     {:noreply, state}
   end

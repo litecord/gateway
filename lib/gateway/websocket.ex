@@ -134,15 +134,19 @@ defmodule Gateway.Websocket do
 
         # we get a list of guilds with get_guilds
         # then proceed to get a fuckton of data with
-        # get_guild_data
-        #guild_ids = Guild.get_guilds(uid)
-        #guilds = guild_ids |> Guild.get_guild_data
+        # map_guild_data
+
+        guild_ids = Guild.get_guilds(uid)
+
+        Presence.subscribe(pid, guild_ids)
+        # guilds = guild_ids |> Guild.map_guild_data
+        guilds = []
 
         ready = enclose(pid, "READY", %{
               v: 6,
               user: user_data,
               private_channels: [],
-              guilds: [],
+              guilds: guilds,
               session_id: State.get(pid, :session_id),
               _trace: get_name(:ready),
         })
@@ -285,11 +289,12 @@ defmodule Gateway.Websocket do
       nil ->
         %{"token" => token,
           "properties" => prop,
-          "compress" => compress,
-          "large_threshold" => large,
-         } = payload["d"]
+        } = payload["d"]
 
+        compress = Map.get(payload, "compress", false)
+        large = Map.get(payload, "large_threshold", 50)
         shard = Map.get(payload, "shard", [0, 1])
+        presence = Map.get(payload, "presence", Presence.default_presence())
 
         # checking given user data
         # and filling the state genserver
@@ -301,13 +306,6 @@ defmodule Gateway.Websocket do
         Gateway.Ready.check_shard(pid, shard)
         Gateway.Ready.fill_session(pid, prop, compress, large)
 
-        # subscribe to ALL available guilds
-        # Presence.subscribe(pid, :all)
-
-        # dispatch to the other users
-        presence = Map.get(payload, "presence", Presence.default_presence())
-        # Presence.dispatch_users(pid, presence)
-
         # good stuff
         {:reply, dispatch(pid, :ready), pid}
       _ ->
@@ -317,11 +315,11 @@ defmodule Gateway.Websocket do
 
   def gateway_handle(:status_update, payload, pid) do
     # Dispatch the new presence to Presence module
-    #
+
     # TODO: parse the game object
     # and extract a presence struct out of it
     game = Map.get(payload, "game")
-    Presence.dispatch_users(pid, game)
+    Presence.dispatch_all(pid, game)
 
     {:ok, pid}
   end
