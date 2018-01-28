@@ -129,11 +129,7 @@ defmodule Gateway.Websocket do
       user_id ->
         user_info = Ready.user_info(user_id)
         user_data = user_info
-                    |> Map.from_struct
-                    # move this to another function
-                    |> Map.delete(:__meta__)
-                    |> Map.delete(:password_hash)
-                    |> Map.delete(:password_salt)
+                    |> User.from_struct
 
         # we get a list of guilds with get_guilds
         # then proceed to get a fuckton of data with
