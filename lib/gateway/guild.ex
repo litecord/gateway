@@ -64,7 +64,8 @@ defmodule GenGuild do
   This holds generic information about a specific guild,
   like which users are subscribed to the guild's events.
 
-  The general idea is that a GenGuild is implementing pub/sub.
+  The general idea is that a GenGuild is implementing the
+  sub part of pub/sub.
   """
   use GenServer
   require Logger
@@ -91,15 +92,6 @@ defmodule GenGuild do
   @spec get_subs(pid()) :: [String.t]
   def get_subs(pid) do
     GenServer.call(pid, {:get_subs})
-  end
-
-  @doc """
-  Dispatch messages to the users subscribed
-  to this guild.
-  """
-  @spec dispatch(pid(), Map.t) :: :ok
-  def dispatch(pid, message) do
-    GenServer.cast(pid, {:dispatch, message})
   end
 
   ## server callbacks
@@ -136,14 +128,6 @@ defmodule GenGuild do
                  subscribed: List.delete(uids, user_id)
                 }
     }
-  end
-
-  def handle_cast({:dispatch, message}, state) do
-    subscribed = state[:subscribed]
-    Enum.each(subscribed, fn user_id ->
-      Presence.dispatch_user(message, message)
-    end)
-    {:noreply, state}
   end
 
 end

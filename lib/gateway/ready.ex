@@ -48,13 +48,14 @@ defmodule Gateway.Ready do
         Logger.warn fn ->
           "Request timeout"
         end
-        State.send_ws(pid, {:close, 4001, "Authentication failed (timeout)"})
+
+        State.ws_close(pid, 4001, "Authentication failed (timeout)")
         false
       [false, err] ->
         Logger.info fn ->
           "auth failed: #{err}"
         end
-        State.send_ws(pid, {:close, 4001, "Authentication Failed"})
+        State.ws_close(pid, 4001, "Authentication failed")
         false
       true ->
         Logger.info "IDENTIFIED"
@@ -66,18 +67,19 @@ defmodule Gateway.Ready do
   def check_shard(pid, shard) do
     if Enum.count(shard) != 2 do
       Logger.info "Invalid shard"
-      State.send_ws(pid, {:error, 4010, "Invalid shard (len)"})
+      State.ws_close(pid, 4010, "Invalid shard (payload length)")
     end
 
+    # we accept shards 0 to shard_count - 1
     [shard_id, shard_count] = shard
-    if shard_count < 1 do
+    if shard_count < 0 do
       Logger.info "Invalid shard from count"
-      State.send_ws(pid, {:error, 4010, "Invalid shard (count < 1)"})
+      State.ws_close(pid, 4010, "Invalid shard (count < 0)")
     end
 
     if shard_id > shard_count do
       Logger.info "Invalid shard from id"
-      State.send_ws(pid, {:error, 4010, "Invalid shard (id > count)"})
+      State.ws_close(pid, 4010, "Invalid shard (id > count)")
     end
   end
 

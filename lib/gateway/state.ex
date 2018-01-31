@@ -129,12 +129,13 @@ defmodule State do
     })
   end
 
-  # Client api
+  @spec get(pid(), term()) :: term()
   def get(pid, key) do
     # Logger.info "state get: #{inspect pid} -> #{inspect key}"
     GenServer.call(pid, {:get, key})
   end
 
+  @spec put(pid(), atom(), term()) :: :ok
   def put(pid, key, value) do
     # Logger.info "state put #{inspect pid} -> #{inspect key} : #{inspect value}"
     GenServer.cast(pid, {:put, key, value})
@@ -144,8 +145,17 @@ defmodule State do
   Send an Erlang message to the state's
   linked websocket process
   """
+  @spec ws_send(pid(), term()) :: :ok
   def ws_send(pid, message) do
     GenServer.cast(pid, {:ws_send, message})
+  end
+
+  @doc """
+  Send a message to the websocket to close itself.
+  """
+  @spec ws_close(pid(), Integer.t, String.t) :: :ok
+  def ws_close(pid, code, reason) do
+    GenServer.cast(pid, {:ws_send, {:close, code, reason}})
   end
 
   # Server callbacks

@@ -262,14 +262,23 @@ defmodule Gateway.Websocket do
   end
 
   # litecord-specific message handlers
+  @doc """
+  Send raw data over the websocket.
+  """
   def litecord_handle({:send_raw, data}, pid) do
     {:reply, {:text, data}, pid}
   end
 
+  @doc """
+  Send a map over the websocket.
+  """
   def litecord_handle({:send_map, map}, pid) do
     {:reply, {:text, encode(map, pid)}, pid}
   end
-  
+
+  @doc """
+  Close the websocket.
+  """
   def litecord_handle({:close, code, reason}, pid) do
     {:reply, {:close, code, reason}, pid}
   end
