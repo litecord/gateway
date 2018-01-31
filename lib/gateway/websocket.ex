@@ -18,7 +18,7 @@ defmodule Gateway.Websocket do
     # We add 1 second more because the world is bad
     :erlang.send_after(hb_interval() + 1000, self(), [:heartbeat])
   end
-  
+
   def init(req, _state) do
     Logger.info "New client: #{inspect req}"
 
@@ -72,10 +72,10 @@ defmodule Gateway.Websocket do
 
   def encode(map, pid) do
     encoded = case State.get(pid, :encoding) do
-                "etf" -> :erlang.term_to_binary(map)
-                _ ->
-                  Poison.encode!(map)
-              end
+      "etf" -> :erlang.term_to_binary(map)
+      _ ->
+        Poison.encode!(map)
+    end
 
     case State.get(pid, :compress) do
       _ ->
@@ -99,7 +99,7 @@ defmodule Gateway.Websocket do
       d: data,
     }
   end
-  
+
   def payload(:ack, pid) do
     %{
       op: opcode(:ack),
@@ -120,6 +120,10 @@ defmodule Gateway.Websocket do
     |> encode(pid)
   end
 
+  def payload(:presence_update, pid, presence) do
+    :ok
+  end
+
   def dispatch(pid, :ready) do
     uid = State.get(pid, :user_id)
     case uid do
@@ -127,9 +131,7 @@ defmodule Gateway.Websocket do
         # not auth
         {:close, 4001, "Not Authenticated for READY"}
       user_id ->
-        user_info = Ready.user_info(user_id)
-        user_data = user_info
-                    |> User.from_struct
+        user_data = user_id |> Ready.user_info |> User.from_struct
 
         # we get a list of guilds with get_guilds
         # then proceed to get a fuckton of data with
@@ -151,18 +153,18 @@ defmodule Gateway.Websocket do
           _trace: get_name(:ready),
         })
 
-        Logger.debug fn ->
-          "Ready packet: #{inspect ready}"
-        end
+      Logger.debug fn ->
+        "Ready packet: #{inspect ready}"
+      end
 
-        {:text, encode(ready, pid)}
+      {:text, encode(ready, pid)}
     end
   end
 
   def dispatch(pid, :resumed) do
     resumed = enclose(pid, "RESUMED", %{
-          _trace: get_name()
-                      })
+      _trace: get_name()
+    })
     {:text, encode(resumed, pid)}
   end
 
@@ -193,7 +195,6 @@ defmodule Gateway.Websocket do
     # Spin up a State GenServer
     Logger.info "v=#{gw_version}, encoding=#{gw_encoding}"
     if gw_version == "6" or gw_version == "7" do
-      Logger.info "I AM #{inspect self()}"
       {:ok, pid} = State.start(self(), gw_encoding)
 
       hello = %{
@@ -209,8 +210,8 @@ defmodule Gateway.Websocket do
       {:reply, {:close, 4000, "Gateway version not supported"}, nil}
     end
   end
-  
-  # Handle client frames
+
+  # Handle sent client frames
   def websocket_handle({:text, content}, pid) do
     payload = decode(content, pid)
     Logger.debug fn ->
@@ -225,7 +226,7 @@ defmodule Gateway.Websocket do
     {:ok, state}
   end
 
-  # handle incoming messages
+  # handle incoming erlang payloads
 
   @doc """
   This function is usually called every
@@ -249,21 +250,30 @@ defmodule Gateway.Websocket do
     end
   end
 
-  def websocket_info2({:send, dispatch}, pid) do
-    Logger.debug fn ->
-      "websocket_info, got #{inspect dispatch} to send"
-    end
-    {:reply, dispatch, pid}
+  def websocket_info({:ws, message}, pid) do
+    # our special litecord-specific messages
+    litecord_handle(message, pid)
   end
 
+  # handler for any message
   def websocket_info(data, state) do
     Logger.info "websocket_info, got #{inspect data}"
     {:ok, state}
   end
-    
-  #def websocket_info(any, _state) do
-  #  Logger.info "recv info: #{any}"
-  #end
+
+  # litecord-specific message handlers
+  def litecord_handle({:send_raw, data}, pid) do
+    {:reply, {:text, data}, pid}
+  end
+
+  def litecord_handle({:send_map, map}, pid) do
+    {:reply, {:text, encode(map, pid)}, pid}
+  end
+  
+  def litecord_handle({:close, code, reason}, pid) do
+    {:reply, {:close, code, reason}, pid}
+  end
+
 
   @doc """
   Handle HEARTBEAT packets by the client.
@@ -304,7 +314,9 @@ defmodule Gateway.Websocket do
 
         Logger.info "getting shard info"
         Gateway.Ready.check_shard(pid, shard)
-        Gateway.Ready.fill_session(pid, prop, compress, large)
+        Gateway.Ready.fill_session(pid, shard, prop, compress, large)
+
+        #Presence.dispatch_multi(pid, presence, :all_guilds)
 
         # good stuff
         {:reply, dispatch(pid, :ready), pid}
@@ -335,7 +347,7 @@ defmodule Gateway.Websocket do
       }
     } = payload
 
-    pid = State.Registry.get(session_id)
+    pid = State.Registry.get(pid, session_id)
     case pid do
       nil ->
         # Should we just invalidate session?

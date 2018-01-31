@@ -88,7 +88,7 @@ defmodule GenGuild do
   @doc """
   Get all users subscribed to a guild's events
   """
-  @spec get_subs(pid()) :: [integer()]
+  @spec get_subs(pid()) :: [String.t]
   def get_subs(pid) do
     GenServer.call(pid, {:get_subs})
   end

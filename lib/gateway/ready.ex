@@ -94,12 +94,17 @@ defmodule Gateway.Ready do
     |> Base.encode16(case: :lower)
   end
  
-  def fill_session(pid, properties, compress, large) do
-    State.put(pid, :session_id, generate_session_id())
+  def fill_session(pid, shard, properties, compress, large) do
+    session_id = generate_session_id()
+    State.put(pid, :session_id, session_id)
 
     # your usual connection properties
+    State.put(pid, :shard_id, Enum.at(shard, 0))
+    State.put(pid, :shard_total, Enum.at(shard, 1))
     State.put(pid, :properties, properties)
     State.put(pid, :compress, compress)
     State.put(pid, :large, large)
+
+    State.Registry.put(pid)
   end
 end
