@@ -120,10 +120,6 @@ defmodule Gateway.Websocket do
     |> encode(pid)
   end
 
-  def payload(:presence_update, pid, presence) do
-    :ok
-  end
-
   def dispatch(pid, :ready) do
     uid = State.get(pid, :user_id)
     case uid do
@@ -325,6 +321,8 @@ defmodule Gateway.Websocket do
         Gateway.Ready.check_shard(pid, shard)
         Gateway.Ready.fill_session(pid, shard, prop, compress, large)
 
+        State.put(pid, :presence, presence)
+
         #Presence.dispatch_multi(pid, presence, :all_guilds)
 
         # good stuff
@@ -339,8 +337,8 @@ defmodule Gateway.Websocket do
 
     # TODO: parse the game object
     # and extract a presence struct out of it
-    game = Map.get(payload, "game")
-    Presence.dispatch_all(pid, game)
+    #State.put(pid, :presence, payload)
+    #Presence.dispatch_all(pid, game)
 
     {:ok, pid}
   end

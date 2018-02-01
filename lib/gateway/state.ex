@@ -105,7 +105,7 @@ defmodule State do
   use GenServer
   require Logger
   
-  defmodule StateStruct do
+  defmodule Struct do
     @moduledoc """
     Defines a stucture of data to be hold to a state
     object.
@@ -113,12 +113,11 @@ defmodule State do
     defstruct [:session_id, :token, :user_id, :events,
                :recv_seq, :sent_seq, :heartbeat,
                :encoding, :compress, :shard_id, :shard_total,
-               :properties, :large, :ws_pid]
+               :properties, :large, :ws_pid, :presence]
   end
 
   def start(ws_pid, encoding) do
-    Logger.info "Spinning up state GenServer"
-    GenServer.start(__MODULE__, %StateStruct{
+    GenServer.start(__MODULE__, %Struct{
       ws_pid: ws_pid,
       events: [],
       recv_seq: 0,

@@ -13,6 +13,12 @@ defmodule Presence do
   use GenServer
   require Logger
 
+  defmodule Struct do
+    # TODO: finish struct
+    defstruct [:user_id, :shard_id, :shard_total,
+               :status, ]
+  end
+
   def start() do
     GenServer.start(__MODULE__, :ok, [name: :presence])
   end
@@ -62,14 +68,15 @@ defmodule Presence do
   end
 
   @doc """
-  Dispatch presence data to a guild.
+  Dispatch data to a guild.
   """
   @spec dispatch(String.t, pid(), Map.t, :guild) :: nil
-  def dispatch(guild_id, pid, presence, :guild) do
+  def dispatch(guild_id, pid, data, :guild) do
     guild_pid = Guild.Registry.get(guild_id)
 
     if guild_pid != nil do
-      presence_packet = Gateway.Websocket.payload(:presence_update, pid, presence)
+      # TODO: add a special function specially for presence updates
+      # presence_packet = Gateway.Websocket.payload(:presence_update, pid, presence)
 
       user_ids = GenGuild.get_subs(guild_pid)
 
@@ -80,7 +87,7 @@ defmodule Presence do
                   |> Enum.flatten
 
       Enum.each(user_pids, fn pid ->
-        State.ws_send(pid, {:send_map, presence_packet})
+        State.ws_send(pid, {:send_map, data})
       end)
     end
   end

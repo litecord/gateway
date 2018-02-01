@@ -94,17 +94,27 @@ defmodule GenGuild do
     GenServer.call(pid, {:get_subs})
   end
 
+  @spec get_presences(pid()) :: [Presence.Struct.t]
+  def get_presences(pid) do
+    GenServer.call(pid, {:get_presences})
+  end
+
   ## server callbacks
   def init(guild_id) do
     {:ok, %{
-        id: guild_id,
-        subscribed: []
-     }}
+      id: guild_id, # String.t
+      subscribed: [], # [String.t]
+      presences: %{} # %{String.t (user_id) => Presence.Struct.t}
+    }}
   end
 
   ## calls
   def handle_call({:get_subs}, _from, state) do
     {:reply, state.subscribed, state}
+  end
+
+  def handle_call({:get_presences}, _from, state) do
+    {:reply, state.presences, state}
   end
 
   ## casts
