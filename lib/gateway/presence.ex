@@ -14,9 +14,11 @@ defmodule Presence do
   require Logger
 
   defmodule Struct do
-    # TODO: finish struct
-    defstruct [:user_id, :shard_id, :shard_total,
-               :status, ]
+    defstruct [:ws_pid, :user_id, :game]
+  end
+
+  defmodule Status do
+    defstruct [:ws_pid, :status]
   end
 
   def start() do

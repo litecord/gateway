@@ -12,10 +12,4 @@ defmodule PresenceTest do
     Presence.subscribe(pid, "1", "1")
     Presence.unsubscribe(pid, "1", "1")
   end
-
-  test "dispatch to unknown user", %{pid: pid} do
-    IO.puts "test"
-    dp = Presence.default_presence()
-    Presence.dispatch_user dp, "1"
-  end
 end

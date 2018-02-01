@@ -30,12 +30,29 @@ defmodule Guild do
   Get all guild IDs a user is on, given its ID.
   """
   @spec get_guilds(String.t) :: [String.t]
-  def get_guilds(user_id) do
+  def get_guilds(user_id) when is_binary(user_id) do
     query = from m in "members",
       where: m.user_id == ^user_id,
       select: m.guild_id
 
     Gateway.Repo.all(query)
+  end
+  
+  @doc """
+  Get all the guilds that are tied to a websocket connection
+  (shard).
+  """
+  def get_guilds(pid) when is_pid(pid) do
+    user_id = State.get(pid, :user_id)
+    shard_id = State.get(pid, :shard_id)
+    shard_total = State.get(pid, :shard_total)
+
+    user_id
+    |> get_guilds
+    |> Enum.filter(fn guild_id ->
+      {guild_id_int, _} = guild_id |> Integer.parse
+      State.Registry.get_shard(guild_id, shard_total) == shard_id
+    end)
   end
 
   @doc """
@@ -59,6 +76,7 @@ defmodule Guild do
       el != nil
     end)
   end
+
 end
 
 defmodule Guild.Registry do
@@ -151,7 +169,8 @@ defmodule GenGuild do
     {:ok, %{
       id: guild_id, # String.t
       subscribed: [], # [String.t]
-      presences: %{} # %{String.t (user_id) => Presence.Struct.t}
+      status: %{} # %{String.t => Presence.Status.t}
+      presences: %{} # %{String.t => [Presence.Struct.t]}
     }}
   end
 

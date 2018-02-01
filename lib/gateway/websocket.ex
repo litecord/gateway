@@ -133,7 +133,7 @@ defmodule Gateway.Websocket do
         # then proceed to get a fuckton of data with
         # map_guild_data
 
-        guild_ids = Guild.get_guilds(uid)
+        guild_ids = Guild.get_guilds(pid)
 
         Presence.subscribe(pid, guild_ids)
         # guilds = guild_ids |> Guild.map_guild_data
