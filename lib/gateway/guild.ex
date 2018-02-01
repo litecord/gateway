@@ -45,14 +45,18 @@ defmodule Guild do
   """
   @spec map_guild_data([String.t]) :: [Map.t]
   def map_guild_data(guild_ids) do
-    Enum.map(guild_ids, fn guild_id ->
+    guild_ids
+    |> Enum.map(fn guild_id ->
       struct = guild_id
-      |> Guild.get_guild
+               |> Guild.get_guild
 
       case struct do
         nil -> nil
         s -> s |> Guild.from_struct
       end
+    end)
+    |> Enum.filter(fn el ->
+      el != nil
     end)
   end
 end
