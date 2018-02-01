@@ -6,9 +6,9 @@ defmodule User do
   @doc """
   Convert from a user struct to a user map.
   """
-  @spec from_struct(struct()) :: Map.t
+  @spec from_struct(Ecto.Struct.t()) :: Map.t
   def from_struct(struct) do
-    map = struct
+    struct
     |> Map.from_struct
     |> Map.delete(:__meta__)
     |> Map.delete(:password_hash)

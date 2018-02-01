@@ -3,7 +3,32 @@ defmodule Guild do
   General functions for fetching guild data.
   """
   import Ecto.Query, only: [from: 2]
+  alias Gateway.Repo
+
+  @doc """
+  Convert a guild struct to a guild map
+  """
+  @spec from_struct(Ecto.Struct.t()) :: Map.t
+  def from_struct(struct) do
+    struct
+    |> Map.from_struct
+    |> Map.delete(:__meta__)
+  end
+
+  @doc """
+  Query one guild, based on its ID.
+  """
+  @spec get_guild(String.t) :: Ecto.Struct.t() | nil
+  def get_guild(guild_id) do
+    query = from g in Gateway.Guild,
+      where: g.id == ^guild_id
+
+    Repo.one(query)
+  end
   
+  @doc """
+  Get all guild IDs a user is on, given its ID.
+  """
   @spec get_guilds(String.t) :: [String.t]
   def get_guilds(user_id) do
     query = from m in "members",
@@ -11,6 +36,24 @@ defmodule Guild do
       select: m.guild_id
 
     Gateway.Repo.all(query)
+  end
+
+  @doc """
+  Map a list of gulid IDs to maps that have its data.
+
+  Commonly used across the websocket.
+  """
+  @spec map_guild_data([String.t]) :: [Map.t]
+  def map_guild_data(guild_ids) do
+    Enum.map(guild_ids, fn guild_id ->
+      struct = guild_id
+      |> Guild.get_guild
+
+      case struct do
+        nil -> nil
+        s -> s |> Guild.from_struct
+      end
+    end)
   end
 end
 
