@@ -129,7 +129,7 @@ defmodule Gateway.Websocket do
   """
   def payload(:ack, pid) do
     %{
-      op: opcode(:ack),
+      op: atom_opcode(:ack),
       d: nil,
     }
     |> encode(pid)
@@ -141,7 +141,7 @@ defmodule Gateway.Websocket do
         State.Registry.delete(pid)
     end
     %{
-      op: opcode(:invalid_session),
+      op: atom_opcode(:invalid_session),
       d: resumable,
     }
     |> encode(pid)
@@ -217,7 +217,7 @@ defmodule Gateway.Websocket do
       {:ok, pid} = State.start(self(), gw_encoding)
 
       hello = %{
-        op: opcode(:hello),
+        op: atom_opcode(:hello),
         d: %{
           heartbeat_interval: hb_interval(),
           _trace: get_name()
@@ -376,7 +376,7 @@ defmodule Gateway.Websocket do
            |> State.Registry.get_user_shards
            |> Enum.filter(fn pid ->
              state_sessid = State.get(pid, :session_id)
-             state_sess_id == session_id
+             state_sessid == session_id
            end)
 
     case Enum.count(pids) do

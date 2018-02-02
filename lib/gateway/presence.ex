@@ -26,7 +26,7 @@ defmodule Presence do
   defmodule Status do
     @enforce_keys [:ws_pid]
     defstruct ws_pid: nil,
-      status: "online",
+      status: "online"
   end
 
   defmodule Struct do
@@ -105,8 +105,8 @@ defmodule Presence do
                   |> Enum.flatten
 
       Enum.each(user_pids, fn state_pid ->
-        data = generator(guild_pid, state_pid)
-        State.ws_send(pid, {:send_map, data})
+        data = generator.(guild_pid, state_pid)
+        State.ws_send(state_pid, {:send_map, data})
       end)
     end
 

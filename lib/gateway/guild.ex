@@ -159,7 +159,7 @@ defmodule GenGuild do
     GenServer.call(pid, {:get_subs})
   end
 
-  @spec add_presence(pid, state_pid) :: :ok
+  @spec add_presence(pid(), Types.state_pid) :: :ok
   def add_presence(pid, state_pid) do
     GenServer.call(pid, {:add_presence, state_pid})
   end
