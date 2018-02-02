@@ -27,7 +27,7 @@ defmodule Gateway.Websocket do
 
   def terminate(reason, _request, pid) do
     Logger.info "Terminating, #{inspect reason}, #{inspect pid}"
-    Presence.delete(pid)
+    State.Registry.delete(pid)
     :ok
   end
 
@@ -39,7 +39,11 @@ defmodule Gateway.Websocket do
     ["litecord-ready-prd-0"]
   end
 
-  def opcode(op) do
+  @doc """
+  get an op code from an atom
+  """
+  @spec atom_opcode(atom()) :: integer()
+  def atom_opcode(atom) do
     %{dispatch: 0,
       heartbeat: 1,
       identify: 2,
@@ -52,9 +56,13 @@ defmodule Gateway.Websocket do
       invalid: 9,
       hello: 10,
       ack: 11,
-      guild_sync: 12}[op]
+      guild_sync: 12}[atom]
   end
 
+  @doc """
+  get an atom from an opcode
+  """
+  @spec opcode_atom(integer()) :: atom()
   def opcode_atom(opcode) do
     %{0 => :dispatch,
       1 => :heartbeat,
@@ -71,9 +79,14 @@ defmodule Gateway.Websocket do
       12 => :guild_sync}[opcode]
   end
 
+  @doc """
+  Encode a map based on the encoding
+  of the connection.
+  """
   def encode(map, pid) do
     encoded = case State.get(pid, :encoding) do
-      "etf" -> :erlang.term_to_binary(map)
+      "etf" ->
+        :erlang.term_to_binary(map)
       _ ->
         Poison.encode!(map)
     end
@@ -84,6 +97,9 @@ defmodule Gateway.Websocket do
     end
   end
 
+  @doc """
+  Decode any data from the websocket.
+  """
   def decode(raw, pid) do
     case State.get(pid, :encoding) do
       "etf" ->
@@ -93,14 +109,24 @@ defmodule Gateway.Websocket do
     end
   end
 
+  @doc """
+  Enclose a OP 0 Dispatch packet outside
+  of a payload
+  """
+  @spec enclose(pid(), String.t, any()) :: Map.t
   def enclose(pid, ev_type, data) do
-    %{op: 0,
+    %{
+      op: 0,
       s: State.get(pid, :sent_seq),
       t: ev_type,
       d: data,
     }
   end
 
+  @doc """
+  Get the payload, as a string,
+  of the OP 11 Heartbeat ACK
+  """
   def payload(:ack, pid) do
     %{
       op: opcode(:ack),
@@ -174,12 +200,9 @@ defmodule Gateway.Websocket do
   end
 
   def dispatch(_state, _) do
-    {:error, 4000, "Unkown atom"}
+    {:error, 4000, "unknown atom to dispatch"}
   end
 
-  # The logic is that the client
-  # will send an IDENTIFY packet soon
-  # after receiving this HELLO.
   def websocket_init(req) do
     Logger.info "Sending a hello packet"
 
@@ -214,9 +237,14 @@ defmodule Gateway.Websocket do
       "Received payload: #{inspect payload}"
     end
 
-    as_atom = opcode_atom(payload["op"])
-    gateway_handle(as_atom, payload, pid)
-  end
+    case Map.get(payload, "op") do
+      nil -> 
+        {:reply, {:close, 4000, "Bad packet"}, pid}
+      as_op ->
+        as_atom = as_op |> opcode_atom
+        gateway_handle(as_atom, payload, pid)
+    end
+ end
 
   def websocket_handle(_any_frame, state) do
     {:ok, state}
@@ -313,17 +341,11 @@ defmodule Gateway.Websocket do
 
         # checking given user data
         # and filling the state genserver
-        Logger.info "checking token"
         Gateway.Ready.check_token(pid, token)
-        Logger.info "token checked"
-
-        Logger.info "getting shard info"
         Gateway.Ready.check_shard(pid, shard)
         Gateway.Ready.fill_session(pid, shard, prop, compress, large)
 
         State.put(pid, :presence, presence)
-
-        #Presence.dispatch_multi(pid, presence, :all_guilds)
 
         # good stuff
         {:reply, dispatch(pid, :ready), pid}
@@ -333,13 +355,7 @@ defmodule Gateway.Websocket do
   end
 
   def gateway_handle(:status_update, payload, pid) do
-    # Dispatch the new presence to Presence module
-
-    # TODO: parse the game object
-    # and extract a presence struct out of it
-    #State.put(pid, :presence, payload)
-    #Presence.dispatch_all(pid, game)
-
+    # TODO: Dispatch the new presence to Presence module
     {:ok, pid}
   end
 
@@ -353,21 +369,33 @@ defmodule Gateway.Websocket do
         "seq" => seq,
       }
     } = payload
+    Gateway.Ready.check_token(pid, token)
 
-    pid = State.Registry.get(pid, session_id)
-    case pid do
-      nil ->
-        # Should we just invalidate session?
-        # yes we should.
-        {:reply, {:text, payload(:invalid_session, pid)}, pid}
-      any -> 
-        # We have a proper PID, lets resume it.
-        case Gateway.Ready.check_token(token) do
-          true ->
-            {:reply, dispatch(pid, :resumed), pid}
-          false ->
-            {:noreply, pid}
-        end
+    user_id = State.get(pid, :user_id)
+    pids = user_id
+           |> State.Registry.get_user_shards
+           |> Enum.filter(fn pid ->
+             state_sessid = State.get(pid, :session_id)
+             state_sess_id == session_id
+           end)
+
+    case Enum.count(pids) do
+      0 ->
+        # session id not found
+        {:reply, payload(:invalid_session, pid), pid}
+      any ->
+        old_state_pid = Enum.at(pids, 0)
+
+        # replay events
+        Enum.each(State.get(old_state_pid, :events), fn event ->
+          send self(), {:send_map, event}
+        end)
+
+        # overwrite the old ws pid (which is dead)
+        # to self()
+        State.put(pid, :ws_pid, self())
+
+        {:reply, dispatch(pid, :resumed), pid}
     end
   end
 

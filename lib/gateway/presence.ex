@@ -13,6 +13,22 @@ defmodule Presence do
   use GenServer
   require Logger
 
+  defmodule Activity do
+    @moduledoc """
+    Describes an activity struct.
+    """
+    @enforce_keys [:name]
+    defstruct name: "",
+      type: 0,
+      url: nil
+  end
+
+  defmodule Status do
+    @enforce_keys [:ws_pid]
+    defstruct ws_pid: nil,
+      status: "online",
+  end
+
   defmodule Struct do
     defstruct [:ws_pid, :user_id, :game]
   end
