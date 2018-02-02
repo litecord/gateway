@@ -136,8 +136,7 @@ defmodule Gateway.Websocket do
         guild_ids = Guild.get_guilds(pid)
 
         Presence.subscribe(pid, guild_ids)
-        # guilds = guild_ids |> Guild.map_guild_data
-        guilds = []
+        guilds = guild_ids |> Guild.map_guild_data
 
         ready = enclose(pid, "READY", %{
           v: 6,

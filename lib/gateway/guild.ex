@@ -169,7 +169,7 @@ defmodule GenGuild do
     {:ok, %{
       id: guild_id, # String.t
       subscribed: [], # [String.t]
-      status: %{} # %{String.t => Presence.Status.t}
+      status: %{}, # %{String.t => Presence.Status.t}
       presences: %{} # %{String.t => [Presence.Struct.t]}
     }}
   end
