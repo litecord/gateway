@@ -159,9 +159,26 @@ defmodule GenGuild do
     GenServer.call(pid, {:get_subs})
   end
 
-  @spec get_presences(pid()) :: [Presence.Struct.t]
-  def get_presences(pid) do
-    GenServer.call(pid, {:get_presences})
+  @spec add_presence(pid, state_pid) :: :ok
+  def add_presence(pid, state_pid) do
+    GenServer.call(pid, {:add_presence, state_pid})
+  end
+
+  @doc """
+  Get a user's presence.
+
+  This works by selecting the oldest (lowest timestamp) out
+  from all PIDs that were added to the guild (and hence
+  are tied in to the user)
+  """
+  @spec get_presence(pid(), String.t) :: {:ok, Presence.Struct} | {:error, String.t}
+  def get_presence(pid, user_id) do
+    GenServer.call(pid, {:get_presence, user_id})
+  end
+
+  @spec remove_presence(pid(), pid()) :: :ok | {:error, String.t}
+  def remove_presence(pid, state_pid) do
+    GenServer.call(pid, {:drop_presence, state_pid})
   end
 
   ## server callbacks
@@ -169,8 +186,9 @@ defmodule GenGuild do
     {:ok, %{
       id: guild_id, # String.t
       subscribed: [], # [String.t]
+
       status: %{}, # %{String.t => Presence.Status.t}
-      presences: %{} # %{String.t => [Presence.Struct.t]}
+      presences: %{} # %{String.t => {pid(), Integer.t}}
     }}
   end
 
@@ -184,9 +202,6 @@ defmodule GenGuild do
   end
 
   ## casts
-  @doc """
-  Subscribe a user to the guild.
-  """
   def handle_cast({:sub, user_id}, state) do
     uids = state.subscribed
     {:noreply, %{state |
@@ -195,9 +210,6 @@ defmodule GenGuild do
     }
   end
 
-  @doc """
-  Unsubscribe a user from the guild.
-  """
   def handle_cast({:unsub, user_id}, state) do
     uids = state.subscribed
     {:noreply, %{state |
@@ -205,5 +217,22 @@ defmodule GenGuild do
                 }
     }
   end
+
+  def handle_call({:get_presence, user_id}, _from, state) do
+    presences = state.presences
+    data = Map.get(presences, user_id)
+    if data == nil do
+      {:error, "user not found"}
+    else
+      oldest = Enum.min(data, fn tup ->
+        elem tup, 1
+      end)
+
+      {pid, timestamp} = oldest
+      State.get(pid, :presence)
+    end
+  end
+
+  # TODO: the rest
 
 end

@@ -51,6 +51,7 @@ defmodule Presence do
       guild_pid = Guild.Registry.get(guild_id)
 
       GenGuild.subscribe(guild_pid, user_id)
+      GenGuild.add_presence(guild_pid, state_pid)
     end)
   end
 
@@ -71,27 +72,29 @@ defmodule Presence do
 
   @doc """
   Dispatch data to a guild.
+
+  The generator function receives the guild pid and the user shard state pid
   """
-  @spec dispatch(String.t, pid(), Map.t, :guild) :: nil
-  def dispatch(guild_id, pid, data, :guild) do
+  @spec dispatch(String.t, ((pid(), pid()) -> Map.t)) :: nil
+  def dispatch(guild_id, generator) do
     guild_pid = Guild.Registry.get(guild_id)
 
     if guild_pid != nil do
-      # TODO: add a special function specially for presence updates
-      # presence_packet = Gateway.Websocket.payload(:presence_update, pid, presence)
-
-      user_ids = GenGuild.get_subs(guild_pid)
-
-      user_pids = user_ids
-                  |> Enum.map(fn user_id ->
-                    State.Registry.get(user_id, guild_id)
-                  end)
+      # get all guild subscribed users (list of user ids)
+      # then get the pids of the shards for each user
+      # then flatten it all
+      user_pids = guild_pid
+                  |> GenGuild.get_subs
+                  |> Enum.map(&(State.Registry.get(&1, guild_id)))
                   |> Enum.flatten
 
-      Enum.each(user_pids, fn pid ->
+      Enum.each(user_pids, fn state_pid ->
+        data = generator(guild_pid, state_pid)
         State.ws_send(pid, {:send_map, data})
       end)
     end
+
+    nil
   end
 
   # Server callbacks

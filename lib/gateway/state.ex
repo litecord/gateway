@@ -14,28 +14,40 @@ defmodule State.Registry do
   end
 
   ## client api
-  @spec get(String.t, String.t) :: [pid()]
+  @doc """
+  Get all the shard PIDs that are connected
+  to a specific guild.
+
+  (you can have more than one shard connected to a single list)
+  """
+  @spec get(String.t, String.t) :: [pid()] | {:error, String.t}
   def get(user_id, guild_id) do
     GenServer.call(__MODULE__, {:get, user_id, guild_id})
   end
 
+  @doc """
+  Add a state pid to the registry.
+  """
   @spec put(pid()) :: nil
   def put(state_pid) do
     GenServer.cast(__MODULE__, {:put, state_pid})
   end
 
+  @doc """
+  Remove a state pid from the registry.
+  """
   @spec delete(pid()) :: nil
   def delete(state_pid) do
     GenServer.cast(__MODULE__, {:delete, state_pid})
   end
 
   @doc """
-  Get all the shard IDs that are currently tied
+  Get all the shard PIDs that are currently tied
   to a specific user ID.
   """
-  @spec get_user_shards(String.t) :: [Integer.t]
+  @spec get_user_shards(String.t) :: [pid()]
   def get_user_shards(user_id) do
-    GenServer.call(__MODULE__, {:get_shards, user_id})
+    GenServer.call(__MODULE__, {:get_all, user_id})
   end
 
   @doc """
@@ -51,9 +63,19 @@ defmodule State.Registry do
 
   ## server callbacks
   def init(:ok) do
-    {:ok, 
-      # map user id to a list of shards.
-      %{}}
+    {:ok,
+      # %{String.t => [pid()]}
+      %{}
+    }
+  end
+
+  def handle_call({:get_all, user_id}, _from, state) do
+    case Map.get(state, user_id) do
+      nil ->
+        {:reply, {:error, "user not connected"}, state}
+      shards ->
+        {:reply, shards, state}
+    end
   end
 
   def handle_call({:get, user_id, guild_id}, _from, state) do
@@ -62,9 +84,11 @@ defmodule State.Registry do
     end
 
     {guild_id_int, _} = guild_id |> Integer.parse
+
     case Map.get(state, user_id) do
       nil ->
         {:reply, {:error, "user not connected"}, state}
+
       shards ->
         applicable_shards = Enum.filter(shards, fn state_pid ->
           shard_id = State.get(state_pid, :shard_id)

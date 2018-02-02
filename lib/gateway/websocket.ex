@@ -25,8 +25,9 @@ defmodule Gateway.Websocket do
     {:cowboy_websocket, req, req}
   end
 
-  def terminate(reason, _request, state) do
-    Logger.info "Terminating, #{inspect reason}, #{inspect state}"
+  def terminate(reason, _request, pid) do
+    Logger.info "Terminating, #{inspect reason}, #{inspect pid}"
+    Presence.delete(pid)
     :ok
   end
 
