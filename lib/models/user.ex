@@ -19,7 +19,7 @@ defmodule User do
   Convert from a user struct to a user map,
   but keeping private information in the map.
   """
-  @spec from_struct(struct()) :: Map.t
+  @spec from_struct(struct(), :private) :: Map.t
   def from_struct(struct, :private) do
     struct
     |> Map.from_struct

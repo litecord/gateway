@@ -28,7 +28,7 @@ defmodule State.Registry do
   @doc """
   Add a state pid to the registry.
   """
-  @spec put(pid()) :: nil
+  @spec put(pid()) :: :ok
   def put(state_pid) do
     GenServer.cast(__MODULE__, {:put, state_pid})
   end
@@ -36,7 +36,7 @@ defmodule State.Registry do
   @doc """
   Remove a state pid from the registry.
   """
-  @spec delete(pid()) :: nil
+  @spec delete(pid()) :: :ok
   def delete(state_pid) do
     GenServer.cast(__MODULE__, {:delete, state_pid})
   end
@@ -157,13 +157,13 @@ defmodule State do
     })
   end
 
-  @spec get(pid(), term()) :: term()
+  @spec get(pid(), atom()) :: Types.state_type()
   def get(pid, key) do
     # Logger.info "state get: #{inspect pid} -> #{inspect key}"
     GenServer.call(pid, {:get, key})
   end
 
-  @spec put(pid(), atom(), term()) :: :ok
+  @spec put(pid(), atom(), Types.state_type()) :: :ok
   def put(pid, key, value) do
     # Logger.info "state put #{inspect pid} -> #{inspect key} : #{inspect value}"
     GenServer.cast(pid, {:put, key, value})

@@ -343,9 +343,9 @@ defmodule Gateway.Websocket do
 
         # checking given user data
         # and filling the state genserver
-        Gateway.Ready.check_token(pid, token)
-        Gateway.Ready.check_shard(pid, shard)
-        Gateway.Ready.fill_session(pid, shard, prop, compress, large)
+        Ready.check_token(pid, token)
+        Ready.check_shard(pid, shard)
+        Ready.fill_session(pid, shard, prop, compress, large)
 
         State.put(pid, :presence, presence)
 
@@ -371,7 +371,7 @@ defmodule Gateway.Websocket do
         "seq" => seq,
       }
     } = payload
-    Gateway.Ready.check_token(pid, token)
+    Ready.check_token(pid, token)
 
     user_id = State.get(pid, :user_id)
     pids = user_id
@@ -410,7 +410,6 @@ defmodule Gateway.Websocket do
 
     # the GenGuild will send messages back
     # with the chunks we need ;)
-    GenGuild.get_members(guild_pid, self())
     {:noreply, pid}
   end
 

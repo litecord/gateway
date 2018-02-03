@@ -36,13 +36,14 @@ defmodule Gateway.Ready do
       where: u.id == ^user_id,
       select: u.password_salt
 
-    Gateway.Repo.one(query)
+    Repo.one(query)
 
     # Offload that to bridge
     res = Litebridge.request("TOKEN_VALIDATE", [token])
     Logger.debug fn -> 
       "res from litebridge request: #{inspect res}"
     end
+
     case res do
       :request_timeout ->
         Logger.warn fn ->

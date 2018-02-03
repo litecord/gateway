@@ -17,7 +17,11 @@ defmodule Guild.Registry do
   end
 
   ## client api
-  @spec get(String.t) :: GenGuild
+  @doc """
+  Get a GenGuild process, given
+  its ID.
+  """
+  @spec get(String.t) :: pid()
   def get(guild_id) do
     GenServer.call(__MODULE__, {:get, guild_id})
   end

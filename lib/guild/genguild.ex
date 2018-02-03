@@ -100,7 +100,7 @@ defmodule GenGuild do
     if data == nil do
       {:error, "user not found"}
     else
-      oldest = Enum.min(data, fn tup ->
+      oldest = Enum.min_by(data, fn tup ->
         elem tup, 1
       end)
 

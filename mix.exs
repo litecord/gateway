@@ -27,7 +27,7 @@ defmodule Gateway.Mixfile do
       {:poison, "~> 3.1"},
       {:postgrex, ">= 0.0.0"},
       {:ecto, "~> 2.1"},
-      {:credo, "~> 0.8", only: [:dev, :test], runtime: false},
+      {:credo, "~> 0.9.0-rc1", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 0.5", only: [:dev], runtime: false}
     ]
   end

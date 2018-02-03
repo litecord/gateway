@@ -42,6 +42,7 @@ defmodule Guild do
   Get all the guilds that are tied to a websocket connection
   (shard).
   """
+  @spec get_guilds(pid()) :: [String.t]
   def get_guilds(pid) when is_pid(pid) do
     user_id = State.get(pid, :user_id)
     shard_id = State.get(pid, :shard_id)
@@ -51,7 +52,7 @@ defmodule Guild do
     |> get_guilds
     |> Enum.filter(fn guild_id ->
       {guild_id_int, _} = guild_id |> Integer.parse
-      State.Registry.get_shard(guild_id, shard_total) == shard_id
+      State.Registry.get_shard(guild_id_int, shard_total) == shard_id
     end)
   end
 

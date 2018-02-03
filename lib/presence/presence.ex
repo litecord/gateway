@@ -58,7 +58,7 @@ defmodule Presence do
   @doc """
   Subscribe to guilds.
   """
-  @spec subscribe(pid(), [String.t]) :: nil
+  @spec subscribe(pid(), [String.t]) :: :ok
   def subscribe(state_pid, guild_ids) do
     user_id = State.get(state_pid, :user_id)
 
@@ -74,7 +74,7 @@ defmodule Presence do
   @doc """
   Unsubscribe to guilds.
   """
-  @spec unsubscribe(pid(), [String.t]) :: nil
+  @spec unsubscribe(pid(), [String.t]) :: :ok
   def unsubscribe(state_pid, guild_ids) do
     user_id = State.get(state_pid, :user_id)
 
@@ -91,7 +91,7 @@ defmodule Presence do
 
   The generator function receives the guild pid and the user shard state pid
   """
-  @spec dispatch(String.t, ((pid(), pid()) -> Map.t)) :: nil
+  @spec dispatch(String.t, ((pid(), pid()) -> Map.t)) :: :ok
   def dispatch(guild_id, generator) do
     guild_pid = Guild.Registry.get(guild_id)
 
@@ -102,7 +102,7 @@ defmodule Presence do
       user_pids = guild_pid
                   |> GenGuild.get_subs
                   |> Enum.map(&(State.Registry.get(&1, guild_id)))
-                  |> Enum.flatten
+                  |> List.flatten
 
       Enum.each(user_pids, fn state_pid ->
         data = generator.(guild_pid, state_pid)
@@ -110,7 +110,7 @@ defmodule Presence do
       end)
     end
 
-    nil
+    :ok
   end
 
   # Server callbacks

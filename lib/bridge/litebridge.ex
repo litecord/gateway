@@ -35,7 +35,7 @@ defmodule Litebridge do
   This call will block the process waiting for the message
   from the client, with a timeout for a reply of 5 seconds.
   """
-  @spec request(atom(), [any()]) :: any() | :timeout
+  @spec request(String.t, [any()]) :: any() | :timeout
   def request(r_type, r_args) do
     GenServer.call(:litebridge, {:request, r_type, r_args})
   end
