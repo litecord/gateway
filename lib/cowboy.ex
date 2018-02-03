@@ -1,3 +1,20 @@
+defmodule Gateway.DefaultHandler do
+  @moduledoc """
+  Just a default handler for /
+  """
+  require Logger
+
+  def init(req0, state) do
+    Logger.info "giving a hello"
+    req = :cowboy_req.reply(200,
+      %{"content-type" => "text/plain"},
+      "helo",
+      req0
+    )
+    {:ok, req, state}
+  end
+end
+
 defmodule Gateway.Cowboy do
   @moduledoc """
   Entry point for the webserver and websocket servers.
@@ -7,7 +24,9 @@ defmodule Gateway.Cowboy do
   def start_link() do
     dispatch_config = build_dispatch_config()
 
-    Logger.info "Starting cowboy at :8080"
+    # TODO: use port from Application.fetch_env!()
+
+    Logger.info "Starting cowboy at :8081"
     {:ok, _} = :cowboy.start_clear(:http,
       [{:port, 8081}],
       %{env: %{dispatch: dispatch_config}}

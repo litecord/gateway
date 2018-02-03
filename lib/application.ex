@@ -1,6 +1,6 @@
 defmodule Gateway.Supervisor do
   @moduledoc """
-  Entry point for the main application supervisor.
+  Application Supervisor
   """
   use Supervisor
   require Logger
