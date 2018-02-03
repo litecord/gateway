@@ -24,11 +24,16 @@ defmodule Gateway.Cowboy do
   def start_link() do
     dispatch_config = build_dispatch_config()
 
-    # TODO: use port from Application.fetch_env!()
+    port = case Application.fetch_env(:gateway, :http_port) do
+      {:ok, http_port} ->
+        http_port
+      :error ->
+        8081
+    end
 
-    Logger.info "Starting cowboy at :8081"
-    {:ok, _} = :cowboy.start_clear(:http,
-      [{:port, 8081}],
+    Logger.info "Starting http at :#{port}"
+    {:ok, _} = :cowboy.start_clear(:litecord_http,
+      [{:port, port}],
       %{env: %{dispatch: dispatch_config}}
     )
   end
@@ -38,7 +43,16 @@ defmodule Gateway.Cowboy do
   def start_link_https() do
     dispatch_config = build_dispatch_config()
 
-    {:ok, _} = :cowboy.start_tls(:litecord_http,
+    port = case Application.fetch_env(:gateway, :http_port) do
+      {:ok, http_port} ->
+        http_port
+      :error ->
+        8443
+    end
+
+    Logger.info "Starting https at :#{port}"
+
+    {:ok, _} = :cowboy.start_tls(:litecord_https,
       [
         {:port, 8443},
         {:certfile, ""},

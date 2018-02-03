@@ -9,4 +9,5 @@ config :gateway, Gateway.Repo,
 
 
 config :gateway,
+  http_port: 8081,
   bridge_password: "123"
