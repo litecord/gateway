@@ -4,9 +4,9 @@ defmodule Gateway.Mixfile do
   def project do
     [
       app: :gateway,
-      version: "0.1.0",
-      elixir: "~> 1.5",
-      start_permanent: Mix.env == :prod,
+      version: "0.1.1",
+      elixir: "~> 1.6",
+      start_permanent: Mix.env() == :prod,
       deps: deps()
     ]
   end
@@ -27,7 +27,7 @@ defmodule Gateway.Mixfile do
       {:poison, "~> 3.1"},
       {:postgrex, ">= 0.0.0"},
       {:ecto, "~> 2.1"},
-      {:credo, "~> 0.8", only: [:dev, :test], runtime: false},
+      {:credo, "~> 0.8", only: [:dev, :test], runtime: false}
     ]
   end
 end
