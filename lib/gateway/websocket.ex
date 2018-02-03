@@ -27,7 +27,7 @@ defmodule Gateway.Websocket do
 
   def terminate(reason, _request, pid) do
     Logger.info "Terminating, #{inspect reason}, #{inspect pid}"
-    State.Registry.delete(pid)
+    # State.Registry.delete(pid)
     :ok
   end
 
@@ -128,23 +128,25 @@ defmodule Gateway.Websocket do
   of the OP 11 Heartbeat ACK
   """
   def payload(:ack, pid) do
-    %{
+    {:text, %{
       op: atom_opcode(:ack),
       d: nil,
     }
-    |> encode(pid)
+    |> encode(pid)}
   end
 
-  def payload(:invalid_session, pid, resumable) do
+  def payload(:invalid_session, pid, resumable \\ false) do
     case resumable do
       false ->
         State.Registry.delete(pid)
     end
-    %{
+    res = %{
       op: atom_opcode(:invalid_session),
       d: resumable,
     }
     |> encode(pid)
+
+    {:text, res}
   end
 
   def dispatch(pid, :ready) do
@@ -319,7 +321,7 @@ defmodule Gateway.Websocket do
       _ ->
         State.put(pid, :recv_seq, seq)
         State.put(pid, :heartbeat, true)
-        {:reply, {:text, payload(:ack, pid)}, pid}
+        {:reply, payload(:ack, pid), pid}
     end
   end
 
@@ -393,9 +395,9 @@ defmodule Gateway.Websocket do
 
         # overwrite the old ws pid (which is dead)
         # to self()
-        State.put(pid, :ws_pid, self())
+        State.put(old_state_pid, :ws_pid, self())
 
-        {:reply, dispatch(pid, :resumed), pid}
+        {:reply, dispatch(pid, :resumed), old_state_pid}
     end
   end
 

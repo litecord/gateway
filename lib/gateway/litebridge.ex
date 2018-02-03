@@ -268,33 +268,26 @@ defmodule Litebridge do
     random_nonce = gen_nonce()
 
     # choose a random client to handle our request
-    ws_pid = Enum.random(state[:clients])
-    send ws_pid, {:send, %{
-      op: 4,
-      w: r_type,
-      a: r_args,
-      n: random_nonce
-    }}
+    case state[:clients] do
+      [] ->
+        {:reply, {:error, "no clients available"}, state}
+      clients ->
+        ws_pid = Enum.random(state[:clients])
+        send ws_pid, {:send, %{
+          op: 4,
+          w: r_type,
+          a: r_args,
+          n: random_nonce
+        }}
 
-    Logger.debug fn ->
-      "MY FROM IS: #{inspect from}"
+        # Prepare ourselves the 5 second timeout
+        # from the client
+        Process.send_after(self(), {:call_timeout, from}, 5000)
+
+        # this will block the call, read the GenServer docs
+        # to know more
+        {:noreply, Map.put(state, random_nonce, from)}
     end
-
-    # Prepare ourselves the 5 second timeout
-    # from the client
-    Process.send_after(self(), {:call_timeout, from}, 5000)
-
-    # This makes the "blocking" part of request()
-    # since handle_call needs to reply something
-    # to the requesting process, replying nothing
-    # will make it wait for something.
-    #
-    # That something will be later received
-    # by the GenServer as {:response, nonce, data}
-    # and can be properly replied to the client
-    # at a later time, since the GenServer
-    # has a map from nonce's to PIDs.
-    {:noreply, Map.put(state, random_nonce, from)}
   end
 
   def handle_info({:call_timeout, from}, state) do

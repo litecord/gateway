@@ -20,7 +20,7 @@ defmodule State.Registry do
 
   (you can have more than one shard connected to a single list)
   """
-  @spec get(String.t, String.t) :: [pid()] | {:error, String.t}
+  @spec get(String.t, String.t) :: [pid()]
   def get(user_id, guild_id) do
     GenServer.call(__MODULE__, {:get, user_id, guild_id})
   end
@@ -72,7 +72,7 @@ defmodule State.Registry do
   def handle_call({:get_all, user_id}, _from, state) do
     case Map.get(state, user_id) do
       nil ->
-        {:reply, {:error, "user not connected"}, state}
+        {:reply, [], state}
       shards ->
         {:reply, shards, state}
     end
@@ -87,7 +87,7 @@ defmodule State.Registry do
 
     case Map.get(state, user_id) do
       nil ->
-        {:reply, {:error, "user not connected"}, state}
+        {:reply, [], state}
 
       shards ->
         applicable_shards = Enum.filter(shards, fn state_pid ->
@@ -109,8 +109,13 @@ defmodule State.Registry do
 
   def handle_cast({:delete, state_pid}, state) do
     user_id = State.get(state_pid, :user_id)
-    new_shard_list = List.delete(state[user_id], state_pid)
-    {:noreply, Map.put(state, user_id, new_shard_list)}
+    case state[user_id] do
+      nil ->
+        {:noreply, state}
+      state_pids ->
+        new_shard_list = List.delete(state_pids, state_pid)
+        {:noreply, Map.put(state, user_id, new_shard_list)}
+    end
   end
 
 end
