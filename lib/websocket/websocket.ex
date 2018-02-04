@@ -115,9 +115,12 @@ defmodule Gateway.Websocket do
   """
   @spec enclose(pid(), String.t, any()) :: Map.t
   def enclose(pid, ev_type, data) do
+    sent_seq = State.get(pid, :sent_seq)
+
+    State.put(pid, :sent_seq, sent_seq + 1)
     %{
       op: 0,
-      s: State.get(pid, :sent_seq),
+      s: sent_seq + 1,
       t: ev_type,
       d: data,
     }
@@ -303,9 +306,19 @@ defmodule Gateway.Websocket do
   end
 
   @doc """
+  Send a payload to an event over the websocket
+  """
+  def litecord_handle({:send_event, {ev_str, payload}}, pid) do
+    Logger.info "dispatching #{inspect ev_str}"
+    map = enclose(pid, ev_str, payload)
+    {:reply, {:text, map |> encode(pid)}, pid}
+  end
+
+  @doc """
   Close the websocket.
   """
   def litecord_handle({:close, code, reason}, pid) do
+    Logger.info "closing #{inspect code} #{inspect reason}"
     {:reply, {:close, code, reason}, pid}
   end
 

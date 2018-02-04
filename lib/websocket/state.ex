@@ -80,7 +80,7 @@ defmodule State.Registry do
 
   def handle_call({:get, user_id, guild_id}, _from, state) do
     Logger.debug fn ->
-      "state registry: getting shards for #{inspect user_id} #{inspect guild_id}"
+      "state registry: getting shards for u=#{inspect user_id} g=#{inspect guild_id}"
     end
 
     {guild_id_int, _} = guild_id |> Integer.parse
@@ -90,9 +90,9 @@ defmodule State.Registry do
         {:reply, [], state}
 
       shards ->
+        Logger.debug "shards = #{inspect shards}"
         applicable_shards = Enum.filter(shards, fn state_pid ->
-          shard_id = State.get(state_pid, :shard_id)
-          shard_count = State.get(state_pid, :shard_count)
+          [shard_id, shard_count] = State.get(state_pid, :shard)
 
           shard_id == get_shard(guild_id_int, shard_count)
         end)
@@ -103,7 +103,7 @@ defmodule State.Registry do
 
   def handle_cast({:put, state_pid}, state) do
     user_id = State.get(state_pid, :user_id)
-    new_shard_list = [state_pid | state[user_id]]
+    new_shard_list = [state_pid | Map.get(state, user_id, [])]
     {:noreply, Map.put(state, user_id, new_shard_list)}
   end
 
@@ -141,7 +141,7 @@ defmodule State do
     """
     defstruct [:session_id, :token, :user_id, :events,
                :recv_seq, :sent_seq, :heartbeat,
-               :encoding, :compress, :shard_id, :shard_total,
+               :encoding, :compress, :shard,
                :properties, :large, :ws_pid, :presence]
   end
 
@@ -205,7 +205,7 @@ defmodule State do
 
   def handle_cast({:ws_send, message}, state) do
     # {:ws, term()} makes it a specific litecord internal message
-    send state[:ws_pid], {:ws, message}
+    send state.ws_pid, {:ws, message}
     {:noreply, state}
   end
 

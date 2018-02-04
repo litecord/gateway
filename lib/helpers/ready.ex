@@ -13,6 +13,10 @@ defmodule Gateway.Ready do
   """
   @spec user_info(String.t) :: Ecto.Sctruct.t() | nil
   def user_info(user_id) do
+    Logger.debug fn ->
+      "Querying user #{inspect user_id}"
+    end
+
     query = from u in Gateway.User,
       where: u.id == ^user_id
 
@@ -102,8 +106,7 @@ defmodule Gateway.Ready do
     State.put(pid, :session_id, session_id)
 
     # your usual connection properties
-    State.put(pid, :shard_id, Enum.at(shard, 0))
-    State.put(pid, :shard_total, Enum.at(shard, 1))
+    State.put(pid, :shard, shard)
     State.put(pid, :properties, properties)
     State.put(pid, :compress, compress)
     State.put(pid, :large, large)

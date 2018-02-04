@@ -12,6 +12,7 @@ defmodule Presence do
   """
   use GenServer
   require Logger
+  alias Gateway.Ready
 
   defmodule Activity do
     @moduledoc """
@@ -54,12 +55,33 @@ defmodule Presence do
   def subscribe(state_pid, guild_ids) do
     user_id = State.get(state_pid, :user_id)
 
-    Enum.each(guild_ids, fn guild_id ->
+    Enum.each(["1"], fn guild_id ->
       # for each guild, contact guild registry
       guild_pid = Guild.Registry.get(guild_id)
 
       GenGuild.subscribe(guild_pid, user_id)
       GenGuild.add_presence(guild_pid, state_pid)
+
+      # yes, this is very innefficient
+      # sending a presence update on every
+      # guild subscribe for any shard.
+      dispatch("1", fn guild_pid, state_pid ->
+        user_id = State.get(state_pid, :user_id)
+        Logger.debug "uid #{inspect user_id}"
+        userdata = user_id
+                   |> Ready.user_info
+                   |> User.from_struct
+
+        state_presence = State.get(state_pid, :presence)
+
+        {"PRESENCE_UPDATE" ,%{
+          user: userdata,
+          roles: [],
+          guild_id: guild_id,
+          game: state_presence["game"] |> Map.from_struct,
+          status: state_presence["status"].status,
+        }}
+      end)
     end)
   end
 
@@ -71,10 +93,10 @@ defmodule Presence do
     user_id = State.get(state_pid, :user_id)
 
     Enum.each(guild_ids, fn guild_id ->
-      # for each guild, contact guild registry
       guild_pid = Guild.Registry.get(guild_id)
 
       GenGuild.unsubscribe(guild_pid, user_id)
+      GenGuild.remove_presence(guild_pid, state_pid)
     end)
   end
 
@@ -83,7 +105,7 @@ defmodule Presence do
 
   The generator function receives the guild pid and the user shard state pid
   """
-  @spec dispatch(String.t, ((pid(), pid()) -> Map.t)) :: :ok
+  @spec dispatch(String.t, ((pid(), pid()) -> {String.t, Map.t})) :: :ok
   def dispatch(guild_id, generator) do
     guild_pid = Guild.Registry.get(guild_id)
 
@@ -96,9 +118,13 @@ defmodule Presence do
                   |> Enum.map(&(State.Registry.get(&1, guild_id)))
                   |> List.flatten
 
+      Logger.debug fn ->
+        "Dispatching to #{Enum.count(user_pids)} user pids"
+      end
+
       Enum.each(user_pids, fn state_pid ->
         data = generator.(guild_pid, state_pid)
-        State.ws_send(state_pid, {:send_map, data})
+        State.ws_send(state_pid, {:send_event, data})
       end)
     end
 

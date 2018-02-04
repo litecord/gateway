@@ -11,15 +11,14 @@ defmodule Guild.Registry do
   use GenServer
   require Logger
 
-  def start_link(state) do
+  def start_link(opts) do
     Logger.info "starting guild registry"
-    GenServer.start_link(__MODULE__, state, name: __MODULE__)
+    GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
   ## client api
   @doc """
-  Get a GenGuild process, given
-  its ID.
+  Get a GenGuild process, given its ID.
   """
   @spec get(String.t) :: pid()
   def get(guild_id) do
@@ -27,16 +26,16 @@ defmodule Guild.Registry do
   end
   
   ## server callbacks
-  def init(state) do
-    {:ok, state}
+  def init(opts) do
+    {:ok, %{}}
   end
 
-  def handle_call({:get, guild_id}, state) do
+  def handle_call({:get, guild_id}, _from, state) do
+    Logger.info "getting genguild for #{inspect guild_id}"
     case Map.get(state, guild_id) do
       nil ->
         # create new GenGuild
-        Logger.info "Creating new GenGuild for #{guild_id}"
-        {:ok, pid} = GenGuild.start_link(guild_id)
+        {:ok, pid} = GenGuild.start(guild_id)
         {:reply, pid, Map.put(state, guild_id, pid)}
       g ->
         # return what we have available

@@ -11,9 +11,9 @@ defmodule GenGuild do
   use GenServer
   require Logger
   
-  def start_link(guild_id) do
-    Logger.info "starting GenGuild with guild_id #{guild_id}"
-    GenServer.start_link(__MODULE__, guild_id, name: __MODULE__)
+  def start(guild_id) do
+    Logger.info "starting GenGuild with guild_id #{inspect guild_id}"
+    GenServer.start(__MODULE__, guild_id)
   end
 
   # client api
@@ -94,21 +94,36 @@ defmodule GenGuild do
     }
   end
 
+  def handle_call({:add_presence, pid}, _from, state) do
+    user_id = State.get(pid, :user_id)
+    data = Map.get(state.presences, user_id, [])
+
+    timestamp_pid = {
+      pid,
+      :erlang.unique_integer([:monotonic])
+    }
+
+    new_data = [timestamp_pid | data]
+
+    {:reply, :ok, %{state |
+      presences: Map.put(state.presences, user_id, new_data)
+    }}
+  end
+
   def handle_call({:get_presence, user_id}, _from, state) do
     presences = state.presences
     data = Map.get(presences, user_id)
     if data == nil do
-      {:error, "user not found"}
+      {:reply, {:error, "user not found"}, state}
     else
       oldest = Enum.min_by(data, fn tup ->
         elem tup, 1
       end)
 
       {pid, timestamp} = oldest
-      State.get(pid, :presence)
+      presence = State.get(pid, :presence)
+      {:reply, presence, state}
     end
   end
-
-  # TODO: the rest
 
 end
