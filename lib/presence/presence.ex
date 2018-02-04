@@ -55,7 +55,9 @@ defmodule Presence do
   def subscribe(state_pid, guild_ids) do
     user_id = State.get(state_pid, :user_id)
 
-    Enum.each(["1"], fn guild_id ->
+    # guild_ids = ["1"]
+
+    Enum.each(guild_ids, fn guild_id ->
       # for each guild, contact guild registry
       guild_pid = Guild.Registry.get(guild_id)
 
@@ -65,7 +67,7 @@ defmodule Presence do
       # yes, this is very innefficient
       # sending a presence update on every
       # guild subscribe for any shard.
-      dispatch("1", fn guild_pid, state_pid ->
+      dispatch(guild_id, fn guild_pid, state_pid ->
         user_id = State.get(state_pid, :user_id)
         Logger.debug "uid #{inspect user_id}"
         userdata = user_id
