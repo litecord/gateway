@@ -29,14 +29,6 @@ defmodule Presence do
       status: "online"
   end
 
-  defmodule Struct do
-    defstruct [:ws_pid, :user_id, :game]
-  end
-
-  defmodule Status do
-    defstruct [:ws_pid, :status]
-  end
-
   def start() do
     GenServer.start(__MODULE__, :ok, [name: :presence])
   end

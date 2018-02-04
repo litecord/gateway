@@ -311,13 +311,46 @@ defmodule Gateway.Websocket do
 
 
   @doc """
+  Insert a presence payload
+  into the state.
+  """
+  @spec insert_presence(Map.t, pid()) :: :ok
+  def insert_presence(presence, pid) do
+    # we don't get "since" because
+    # we don't have any push notification thing
+    activity = presence
+    pre_status = Map.get(presence, "status")
+
+    status = case pre_status do
+      "invisible" -> "offline"
+      any -> any
+    end
+
+    State.put(pid, :presence, %{
+      "game" => %Presence.Activity{
+        name: activity["name"],
+        type: activity["type"],
+        url: activity["url"]
+      },
+
+      "status" => %Presence.Status{
+        ws_pid: pid,
+        status: status
+      }
+    })
+
+    :ok
+  end
+
+
+  @doc """
   Handle HEARTBEAT packets by the client.
   Send HEARTBEAT ACK packets
   """
   def gateway_handle(:heartbeat, %{"d" => seq}, pid) do
     case State.get(pid, :session_id) do
       nil ->
-        {:reply, {:close, 4003, "Not authenticated"}, pid}
+        {:reply, {:close, 4003, "Not authenticated to heartbeat"}, pid}
       _ ->
         State.put(pid, :recv_seq, seq)
         State.put(pid, :heartbeat, true)
@@ -347,7 +380,7 @@ defmodule Gateway.Websocket do
         Ready.check_shard(pid, shard)
         Ready.fill_session(pid, shard, prop, compress, large)
 
-        State.put(pid, :presence, presence)
+        insert_presence(presence, pid)
 
         # good stuff
         {:reply, dispatch(pid, :ready), pid}
@@ -357,7 +390,8 @@ defmodule Gateway.Websocket do
   end
 
   def gateway_handle(:status_update, payload, pid) do
-    # TODO: Dispatch the new presence to Presence module
+    insert_presence(payload, pid)
+    # Presence.dispatch(pid, guild_ids)
     {:ok, pid}
   end
 

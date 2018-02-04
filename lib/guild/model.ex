@@ -35,7 +35,7 @@ defmodule Guild do
       where: m.user_id == ^user_id,
       select: m.guild_id
 
-    Gateway.Repo.all(query)
+    Repo.all(query)
   end
   
   @doc """
