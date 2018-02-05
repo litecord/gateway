@@ -22,42 +22,60 @@ defmodule Gateway.Cowboy do
   require Logger
 
   def start_link() do
-    dispatch_config = build_dispatch_config()
+    mode = Application.fetch_env!(:gateway, :mode)
 
-    port = case Application.fetch_env(:gateway, :http_port) do
-      {:ok, http_port} ->
-        http_port
-      :error ->
-        8081
+    start_link_bridge
+
+    case mode do
+      :http -> start_link_http
+      :https -> start_link_https
     end
+  end
+
+  def start_link_bridge do
+    dispatch_config = bridge_dispatch_config()
+
+    port = Application.fetch_env!(:gateway, :bridge_port)
+    Logger.info "Starting bridge at :#{port}"
+    {:ok, _} = :cowboy.start_clear(
+      :litecord_bridge,
+      [port: port],
+      %{env: %{dispatch: dispatch_config}}
+    )
+  end
+
+  def start_link_http do
+    dispatch_config = build_dispatch_config()
+    port = Application.fetch_env!(:gateway, :http_port)
 
     Logger.info "Starting http at :#{port}"
-    {:ok, _} = :cowboy.start_clear(:litecord_http,
+    {:ok, _} = :cowboy.start_clear(
+      :litecord_http,
       [{:port, port}],
       %{env: %{dispatch: dispatch_config}}
     )
   end
 
-  # If we get HTTPS working, rename
-  # this function to start_link
   def start_link_https() do
     dispatch_config = build_dispatch_config()
-
-    port = case Application.fetch_env(:gateway, :http_port) do
-      {:ok, http_port} ->
-        http_port
-      :error ->
-        8443
-    end
+    port = Application.fetch_env(:gateway, :https_port)
 
     Logger.info "Starting https at :#{port}"
-
-    {:ok, _} = :cowboy.start_tls(:litecord_https,
+    {:ok, _} = :cowboy.start_tls(
+      :litecord_https,
       [
-        {:port, 8443},
+        {:port, port},
         {:certfile, ""},
         {:keyfile, ""}
       ], %{env: %{dispatch: dispatch_config}})
+  end
+
+  def bridge_dispatch_config do
+    :cowboy_router.compile([
+      {:_, [
+        {"/", Gateway.Bridge, %{}}
+      ]}
+    ])
   end
   
   def build_dispatch_config do
@@ -65,7 +83,6 @@ defmodule Gateway.Cowboy do
       {:_, [
           {"/", Gateway.DefaultHandler, []},
           {"/gw", Gateway.Websocket, %{}},
-          {"/bridge", Gateway.Bridge, %{}}
         ]}
     ])
   end
