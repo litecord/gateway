@@ -61,7 +61,7 @@ defmodule GenGuild do
   def init(guild_id) do
     {:ok, %{
       id: guild_id, # String.t
-      subscribed: [], # [String.t]
+      subscribed: MapSet.new(),
 
       status: %{}, # %{String.t => Presence.Status.t}
       presences: %{} # %{String.t => {pid(), Integer.t}}
@@ -81,7 +81,7 @@ defmodule GenGuild do
   def handle_cast({:sub, user_id}, state) do
     uids = state.subscribed
     {:noreply, %{state |
-                 subscribed: [user_id | uids]
+                 subscribed: MapSet.put(uids, user_id)
                 }
     }
   end
@@ -89,7 +89,7 @@ defmodule GenGuild do
   def handle_cast({:unsub, user_id}, state) do
     uids = state.subscribed
     {:noreply, %{state |
-                 subscribed: List.delete(uids, user_id)
+                 subscribed: MapSet.delete(uids, user_id)
                 }
     }
   end

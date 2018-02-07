@@ -404,7 +404,11 @@ defmodule Gateway.Websocket do
 
   def gateway_handle(:status_update, payload, pid) do
     insert_presence(payload, pid)
-    # Presence.dispatch(pid, guild_ids)
+    guild_ids = Guild.get_guilds(pid)
+
+    # Presence.subscribe/2 will call
+    # GenGuild.add_presence which manages our stuff.
+    Presence.subscribe(pid, guild_ids)
     {:ok, pid}
   end
 
