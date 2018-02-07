@@ -236,6 +236,23 @@ defmodule Gateway.Websocket do
   end
 
   # Handle sent client frames
+  defp dispatch_ghandle(opatom, payload, pid) do
+    sid = State.get(pid, :session_id)
+    Logger.debug fn ->
+      "sid=#{inspect sid}, opcode=#{inspect opatom}"
+    end
+    case {State.get(pid, :session_id), opatom} do
+      {nil, :identify} ->
+        gateway_handle(opatom, payload, pid)
+      {nil, :heartbeat} ->
+        gateway_handle(opatom, payload, pid)
+      {nil, _} ->
+        {:reply, {:close, 4003, "Unauthenticated"}, pid}
+      {_, _} ->
+        gateway_handle(opatom, payload, pid)
+    end
+  end
+
   def websocket_handle({:text, content}, pid) do
     payload = decode(content, pid)
     Logger.debug fn ->
@@ -247,7 +264,7 @@ defmodule Gateway.Websocket do
         {:reply, {:close, 4000, "Bad packet"}, pid}
       as_op ->
         as_atom = as_op |> opcode_atom
-        gateway_handle(as_atom, payload, pid)
+        dispatch_ghandle(as_atom, payload, pid)
     end
  end
 
@@ -459,7 +476,7 @@ defmodule Gateway.Websocket do
     # from there we pass the query and the limit
     guild_pid = Guild.Registry.get(guild_id)
 
-    # the GenGuild will send messages back
+    # TODO: GenGuild will send messages back
     # with the chunks we need ;)
     {:noreply, pid}
   end
