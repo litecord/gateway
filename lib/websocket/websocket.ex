@@ -159,7 +159,7 @@ defmodule Gateway.Websocket do
         # not auth
         {:close, 4001, "Not Authenticated for READY"}
       user_id ->
-        user_data = user_id |> Ready.user_info |> User.from_struct
+        user_data = user_id |> User.get_user |> User.from_struct
 
         # we get a list of guilds with get_guilds
         # then proceed to get a fuckton of data with
@@ -476,8 +476,10 @@ defmodule Gateway.Websocket do
     # from there we pass the query and the limit
     guild_pid = Guild.Registry.get(guild_id)
 
-    # TODO: GenGuild will send messages back
-    # with the chunks we need ;)
+    if String.length(query) > 0 do
+      GenGuild.request_guild_members(guild_pid, query, limit, pid)
+    end
+
     {:noreply, pid}
   end
 

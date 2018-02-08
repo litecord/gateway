@@ -9,21 +9,6 @@ defmodule Gateway.Ready do
   import Ecto.Query, only: [from: 2]
 
   @doc """
-  Query user information.
-  """
-  @spec user_info(String.t) :: Ecto.Sctruct.t() | nil
-  def user_info(user_id) do
-    Logger.debug fn ->
-      "Querying user #{inspect user_id}"
-    end
-
-    query = from u in Gateway.User,
-      where: u.id == ^user_id
-
-    Repo.one(query)
-  end
-
-  @doc """
   Check if a token is valid, and if it
   is, set the state's user_id field to it.
 

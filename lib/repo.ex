@@ -52,3 +52,40 @@ defmodule Gateway.Guild do
     field :features, :string
   end
 end
+
+defmodule Gateway.Member do
+  use Ecto.Schema
+
+  # @primary_key {:id, :string}
+  @primary_key false
+
+  schema "members" do
+    field :user_id, :string
+    field :guild_id, :string
+    field :nickname, :string
+    field :joined_at, :naive_datetime
+  end
+end
+
+defmodule Gateway.MemberRole do
+  use Ecto.Schema
+
+  @primary_key false
+
+  schema "member_roles" do
+    field :user_id, :string
+    field :guild_id, :string
+    field :role_id, :string
+  end
+end
+
+defmodule Gateway.Channel do
+  use Ecto.Schema
+
+  @primary_key false
+
+  schema "channels" do
+    field :id, :string
+    field :guild_id, :string
+  end
+end

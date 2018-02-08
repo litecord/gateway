@@ -57,6 +57,11 @@ defmodule GenGuild do
     GenServer.call(pid, {:drop_presence, state_pid})
   end
 
+  @spec request_guild_members(pid(), String.t, integer(), pid()) :: :ok
+  def request_guild_members(pid, query, limit, state_pid) do
+    GenServer.cast(pid, {:req_members, query, limit, state_pid})
+  end
+
   ## server callbacks
   def init(guild_id) do
     {:ok, %{
@@ -124,6 +129,44 @@ defmodule GenGuild do
       presence = State.get(pid, :presence)
       {:reply, presence, state}
     end
+  end
+
+  def handle_cast({:req_members, query, limit, state_pid}, state) do
+    # Get information on members
+    members = Guild.get_member_data(state.id)
+
+    state.id
+    |> Guild.get_member_data
+    |> Enum.map(fn member ->
+      # merge member stuff with user stuff
+      user_id = member.user_id
+
+      user = user_id
+      |> User.get_user
+      |> User.from_struct
+
+      role_ids = Member.get_roles(member.guild_id, user_id)
+
+      %{
+        user: user,
+        nick: member.nick,
+        roles: role_ids,
+        joined_at: member.joined_at |> DateTime.to_iso8601,
+
+        # TODO: Voice.Manager
+        deaf: false,
+        mute: false
+      }
+    end)
+    |> Enum.chunk_every(1000)
+    |> Enum.each(fn chunk ->
+      State.ws_send(state_pid, {:send_event, {
+        "GUILD_MEMBERS_CHUNK", %{
+          guild_id: state.id,
+          members: chunk
+        }
+      }})
+    end)
   end
 
 end
