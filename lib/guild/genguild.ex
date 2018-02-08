@@ -132,31 +132,10 @@ defmodule GenGuild do
   end
 
   def handle_cast({:req_members, query, limit, state_pid}, state) do
-    # Get information on members
-    members = Guild.get_member_data(state.id)
-
     state.id
     |> Guild.get_member_data
     |> Enum.map(fn member ->
-      # merge member stuff with user stuff
-      user_id = member.user_id
-
-      user = user_id
-      |> User.get_user
-      |> User.from_struct
-
-      role_ids = Member.get_roles(member.guild_id, user_id)
-
-      %{
-        user: user,
-        nick: member.nick,
-        roles: role_ids,
-        joined_at: member.joined_at |> DateTime.to_iso8601,
-
-        # TODO: Voice.Manager
-        deaf: false,
-        mute: false
-      }
+      Member.get_member_map(member)
     end)
     |> Enum.chunk_every(1000)
     |> Enum.each(fn chunk ->

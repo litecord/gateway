@@ -78,5 +78,13 @@ defmodule Guild do
     end)
   end
 
+  @spec get_member_data(String.t) :: [struct()]
+  def get_member_data(guild_id) do
+    query = from m in "members",
+      where: m.guild_id == ^guild_id,
+      select: m
+
+    Repo.all(query)
+  end
 end
 

@@ -196,12 +196,37 @@ defmodule Gateway.Websocket do
   end
 
   @spec dispatch(pid(), atom(), pid()) :: {:text, String.t}
-  def dispatch(pid, :guild_sync, guild_pid) do
-    # idea is call gen guild, request member and presence
-    # information, reply with {:text, String.t} back
-    #
-    # then we are happy!
-    {:text, "{}"}
+  def dispatch(pid, :guild_sync, {guild_id, guild_pid}) do
+
+    # fetch presences from the guild
+    presences = guild_pid
+                |> GenGuild.get_subs
+                |> Enum.map(fn user_id ->
+                  case GenGuild.get_presence(guild_pid, user_id) do
+                    {:error, err} ->
+                      Logger.warn "error getting pres #{guild_id} #{user_id}: #{inspect err}"
+                      nil
+                    {:ok, presence} ->
+                      presence
+                  end
+                end)
+                |> Enum.filter(fn el ->
+                  el != nil
+                end)
+
+    members = guild_id
+              |> Guild.get_member_data
+              |> Enum.map(fn member ->
+                Member.get_member_map(member)
+              end)
+
+    data = enclose(pid, "GUILD_SYNC", %{
+      id: guild_id,
+      presences: presences,
+      members: members
+    })
+
+    {:text, encode(data, pid)}
   end
 
   def dispatch(_state, _) do
@@ -494,7 +519,7 @@ defmodule Gateway.Websocket do
       # the job to the actual GenGuild.subcribe?
       GenGuild.subscribe(guild_pid, uid)
 
-      send self(), {:send, dispatch(pid, :guild_sync, guild_pid)}
+      send self(), {:send, dispatch(pid, :guild_sync, {guild_id, guild_pid})}
     end)
 
     {:noreply, pid}
