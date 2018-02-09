@@ -141,12 +141,22 @@ defmodule Gateway.Bridge do
       "w" => request,
       "a" => args} = decode(payload, state)
 
+    {response, new_state} = bridge_request(request, args, state)
+
     response_payload = encode(%{op: 5,
                                 n: nonce,
-                                #r: response
-                               }, state)
+                                r: response
+                               }, new_state)
 
-    {:reply, {:text, response_payload}, state}
+    {:reply, {:text, response_payload}, new_state}
+  end
+
+  @doc """
+  Request all subscribers that are in a guild.
+  """
+  def bridge_request("GET_SUBSCRIBERS", [guild_id], state) do
+    guild_pid = Guild.Registry.get(guild_id)
+    {GenGuild.get_subs(guild_pid), state}
   end
 
   @doc """
@@ -169,8 +179,43 @@ defmodule Gateway.Bridge do
 
   Do a request that won't have any response back.
   """
-  def handle_payload(6, _payload, state) do
-    {:ok, state}
+  def handle_payload(6, payload, state) do
+    %{
+      "w" => request,
+      "a" => args
+    } = decode(payload, state)
+
+    new_state = bridge_dispatch(request, args, state)
+    {:ok, new_state}
+  end
+
+  def bridge_dispatch("DISPATCH", %{
+    "guild" => guild_id,
+    "event" => [event_name, event_data]
+  }, state) do
+    # dispatch to all members of a guild
+    guild_pid = Guild.Registry.get(guild_id)
+
+    Presence.dispatch(guild_id, fn ->
+      {event_name, event_data}
+    end)
+
+    state
+  end
+
+  def bridge_request("DISPATCH", %{"user" => user_id}, state) do
+    # dispatch to one user (all of the user's shards will receive)
+    state
+  end
+
+  def bridge_dispatch("DISPATCH_MEMBER", [guild_id, user_id], state) do
+    # dispatch to a *single* user in a gulid
+    state
+  end
+
+  def bridge_dispatch("DISPATCH_CHANNEL", [guild_id, channel_id], state) do
+    # dispatch to all users in a channel
+    state
   end
 
 end
