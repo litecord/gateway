@@ -195,7 +195,7 @@ defmodule Gateway.Websocket do
     {:text, encode(resumed, pid)}
   end
 
-  @spec dispatch(pid(), atom(), pid()) :: {:text, String.t}
+  @spec dispatch(pid(), atom(), any()) :: {:text, String.t}
   def dispatch(pid, :guild_sync, {guild_id, guild_pid}) do
 
     # fetch presences from the guild

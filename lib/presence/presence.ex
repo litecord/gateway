@@ -71,7 +71,7 @@ defmodule Presence do
         user_id = State.get(state_pid, :user_id)
         Logger.debug "uid #{inspect user_id}"
         userdata = user_id
-                   |> Ready.user_info
+                   |> User.get_user
                    |> User.from_struct
 
         state_presence = State.get(state_pid, :presence)
