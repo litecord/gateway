@@ -39,7 +39,7 @@ defmodule Guild do
   end
   
   @doc """
-  Get all the guilds that are tied to a websocket connection
+  Get all the guild IDs that are tied to a websocket connection
   (shard).
   """
   @spec get_guilds(pid()) :: [String.t]
@@ -85,6 +85,20 @@ defmodule Guild do
       select: m
 
     Repo.all(query)
+  end
+
+  @doc """
+  Get a complete guild object, given the GenGuild PID
+  and the State PID.
+  """
+  @spec get_complete_guild(pid(), pid()) :: Map.t
+  def guild_dump(guild_pid, state_pid) do
+    guild_id = GenGuild.get(guild_pid, :id)
+    guild_map = guild_id |> Guild.get_guild |> Guild.from_struct
+
+    # TODO: insert more shit
+
+    guild_map
   end
 end
 

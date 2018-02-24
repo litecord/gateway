@@ -90,7 +90,10 @@ defmodule State.Registry do
         {:reply, [], state}
 
       shards ->
-        Logger.debug "shards = #{inspect shards}"
+        Logger.debug fn ->
+          "shards = #{inspect shards}"
+        end
+
         applicable_shards = Enum.filter(shards, fn state_pid ->
           [shard_id, shard_count] = State.get(state_pid, :shard)
 

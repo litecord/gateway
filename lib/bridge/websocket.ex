@@ -189,6 +189,25 @@ defmodule Gateway.Bridge do
     {:ok, new_state}
   end
 
+  def bridge_dispatch("NEW_GUILD", [guild_id, owner_id], state) do
+    # get GenGuild
+    guild_pid = Guild.Registry.get(guild_id)
+    state_pids = State.Registry.get(owner_id, guild_id)
+
+    # ???
+    GenGuild.subscribe(guild_pid, owner_id)
+    GenGuild.add_presence(guild_pid, state_pid)
+
+    Presence.dispatch(guild_id, fn guild_pid, state_pid ->
+      # We need to fill an entire guild payload here.
+      # Fuck.
+      {"GUILD_CREATE", Guild.guild_dump(guild_pid, state_pid)}
+    end)
+
+
+    state
+  end
+
   def bridge_dispatch("DISPATCH", %{
     "guild" => guild_id,
     "event" => [event_name, event_data]
