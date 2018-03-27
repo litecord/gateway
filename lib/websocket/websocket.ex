@@ -193,7 +193,7 @@ defmodule Gateway.Websocket do
         Presence.subscribe(pid, guild_ids)
         guilds = guild_ids |> Guild.map_guild_data
 
-        user_ready_data = user_ready_payliad(pid)
+        user_ready_data = user_ready_data(pid)
         ready = enclose(pid, "READY", Map.merge(%{
           v: 6,
           user: user_data,

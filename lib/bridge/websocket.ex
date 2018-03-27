@@ -196,7 +196,10 @@ defmodule Gateway.Bridge do
 
     # ???
     GenGuild.subscribe(guild_pid, owner_id)
-    GenGuild.add_presence(guild_pid, state_pid)
+
+    Enum.each(state_pids, fn state_pid ->
+      GenGuild.add_presence(guild_pid, state_pid)
+    end)
 
     Presence.dispatch(guild_id, fn guild_pid, state_pid ->
       # We need to fill an entire guild payload here.
