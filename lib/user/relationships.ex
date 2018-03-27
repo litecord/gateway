@@ -1,0 +1,2 @@
+defmodule Relationships do
+end

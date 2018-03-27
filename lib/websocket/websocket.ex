@@ -152,6 +152,29 @@ defmodule Gateway.Websocket do
     {:text, res}
   end
 
+  def user_ready_data(pid) do
+    user_id = State.get(pid, :user_id)
+    relations = Relationships.get(user_id)
+
+    %{
+      relationships: relations,
+      user_settings: UserSettings.get(user_id),
+      user_guild_settings: %{},
+
+      connected_accounts: [],
+      notes: Notes.get(user_id),
+      friend_suggestion_count: 0,
+
+      presences: %{},
+      read_state: [],
+
+      analytics_token: "ass",
+      experiments: [],
+      guild_experiments: [],
+      required_action: "ass",
+    }
+  end
+
   def dispatch(pid, :ready) do
     uid = State.get(pid, :user_id)
     case uid do
@@ -170,7 +193,8 @@ defmodule Gateway.Websocket do
         Presence.subscribe(pid, guild_ids)
         guilds = guild_ids |> Guild.map_guild_data
 
-        ready = enclose(pid, "READY", %{
+        user_ready_data = user_ready_payliad(pid)
+        ready = enclose(pid, "READY", Map.merge(%{
           v: 6,
           user: user_data,
           private_channels: [],
@@ -178,7 +202,7 @@ defmodule Gateway.Websocket do
           session_id: State.get(pid, :session_id),
           relationships: [],
           _trace: get_name(:ready),
-        })
+        }, user_ready_data))
 
       Logger.debug fn ->
         "Ready packet: #{inspect ready}"
