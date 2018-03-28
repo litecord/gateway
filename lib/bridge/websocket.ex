@@ -212,13 +212,15 @@ defmodule Gateway.Bridge do
   end
 
   def bridge_dispatch("DISPATCH", %{
-    "guild" => guild_id,
-    "event" => [event_name, event_data]
+    "guild" => u_guild_id,
+    "event" => [u_event_name, event_data]
   }, state) do
     # dispatch to all members of a guild
-    guild_pid = Guild.Registry.get(guild_id)
+    guild_id = to_string(u_guild_id)
+    event_name = to_string(u_event_name)
 
-    Presence.dispatch(guild_id, fn ->
+    guild_pid = Guild.Registry.get(guild_id)
+    Presence.dispatch(guild_id, fn guild_pid, state_pid ->
       {event_name, event_data}
     end)
 

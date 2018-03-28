@@ -107,7 +107,7 @@ defmodule Presence do
 
   The generator function receives the guild pid and the user shard state pid
   """
-  @spec dispatch(String.t, ((pid(), pid()) -> {String.t, Map.t})) :: :ok
+  @spec dispatch(String.t, ((pid(), pid()) -> {String.t, any()})) :: :ok
   def dispatch(guild_id, generator) do
     guild_pid = Guild.Registry.get(guild_id)
 

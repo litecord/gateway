@@ -93,6 +93,7 @@ defmodule Guild do
   """
   @spec guild_dump(pid(), pid()) :: Map.t
   def guild_dump(guild_pid, state_pid) do
+    # TODO: GenGuild.get
     guild_id = GenGuild.get(guild_pid, :id)
     guild_map = guild_id |> Guild.get_guild |> Guild.from_struct
 
